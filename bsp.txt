@@ -1,0 +1,62 @@
+/*
+* BSP On DISK
+* Working Directory In Root
+* 
+* Toolchain : https://releases.linaro.org/components/toolchain/binaries/6.5-2018.12/arm-linux-gnueabihf/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz
+* Rootfs : https://rcn-ee.com/rootfs/eewiki/minfs/ubuntu-18.04.3-minimal-armhf-2019-11-23.tar.xz
+* kernel, uboot binary in repository
+*/
+
+
+1. BootLoader
+	a.dd if=/dev/zero of=${DISK} bs=1M count=10
+	b.dd if=./uboot/MLO of=${DISK} count=1 seek=1 bs=128k
+	c.dd if=./uboot/u-boot.img of=${DISK} count=2 seek=1 bs=384k
+
+2.Disk Partition
+	a.sfdisk ${DISK} <<-__EOF__
+	  4M,,L,*
+	  __EOF__
+	b.mkfs.ext4 -L rootfs ${DISK}1
+
+3.Mount Disk
+	a.mount ${DISK}1 /target_folder
+
+4.copy rootfs
+	a.tar xf ./rootfs/ubuntu-18.04.3-minimal-armhf-2019-11-23.tar.xz
+	b.tar xfvp ./rootfs/*-*-*-armhf-*/armhf-rootfs-*.tar -C /target_folder
+	c.sync
+	d.chown root:root /target_folder
+	e.chmod 755 /target_folder
+
+5.Set uname_r in /boot/uEnv.txt
+	a.sh -c "echo 'uname_r=${kernel_version}' >> /target_folder/boot/uEnv.txt"
+
+6.Copy Kernel
+	a.cp -v ./kernel/${kernel_version}.zImage /target_folder/boot/vmlinuz-${kernel_version}
+
+7.Copy Kernel Device Tree Binaries
+	a.mkdir -p /target_folder/boot/dtbs/${kernel_version}/
+	b.tar xfv ./kernel/${kernel_version}-dtbs.tar.gz -C /target_folder/boot/dtbs/${kernel_version}/
+
+8.Copy Kernel Modules
+	a.tar xfv ./kernel/${kernel_version}-modules.tar.gz -C /target_folder
+
+9.File Systems Table (/etc/fstab)
+	a.sh -c "echo '/dev/mmcblk0p1  /  auto  errors=remount-ro  0  1' >> /media/rootfs/etc/fstab"
+
+10.Enable Net
+	a.nano /target_folder/etc/network/interfaces
+	b.add : auto lo
+	  iface lo inet loopback
+	  
+  	  auto eth0
+      iface eth0 inet dhcp
+
+     c.nano /media/rootfs/etc/udev/rules.d/70-persistent-net.rules
+     d.add: SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{dev_id}=="0x0", ATTR{type}=="1", KERNEL=="eth*", NAME="eth0"
+
+11.Clean up
+	a.sync
+	c.umount DISK
+

@@ -1,0 +1,14 @@
+prefix=/root/ffmpeg_build
+exec_prefix=${prefix}
+libdir=/root/ffmpeg_build/lib
+includedir=/root/ffmpeg_build/include
+
+Name: libavcodec
+Description: FFmpeg codec library
+Version: 58.9.100
+Requires: libswresample >= 3.0.101, libavutil >= 56.7.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavcodec -L/root/ffmpeg_build/lib -lvpx -lm -lpthread -L/root/ffmpeg_build/lib -lvpx -lm -lpthread -L/root/ffmpeg_build/lib -lvpx -lm -lpthread -L/root/ffmpeg_build/lib -lvpx -lm -lpthread -pthread -lm -lz -L/root/ffmpeg_build/lib -lfdk-aac -lm -lmp3lame -lm -L/root/ffmpeg_build/lib -lopus -lm -ltheoraenc -ltheoradec -logg -lvorbis -lm -logg -lvorbisenc -lvorbis -lm -logg -L/root/ffmpeg_build/lib -lx264 -lpthread -lm -ldl -L/root/ffmpeg_build/lib -lx265 -lstdc++ -lm -lrt -ldl -ldl
+Libs.private: 
+Cflags: -I${includedir}

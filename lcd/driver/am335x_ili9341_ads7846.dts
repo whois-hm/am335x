@@ -1,0 +1,162 @@
+/*
+* ili9341, ads7846 driver's Device Tree 
+*=======================================
+* ili9341 Description
+*=======================================
+*   Type: touch panel
+*   Size:2.8" SPI Serial
+*   Display area:36.72(W)X48.96(H)mm
+*   Size:8.5 x 4.8cm/
+*   Driver element: a-Si TFT active matrix
+*   Pixel arrangement: RGB vertical stripe
+*   Driver IC: ILI9341
+*   Backlight: White LED
+*   Viewing Direction: 6 o'clock
+*   Color Depth: 262K/65K
+*   Resolution (dots): 240RGB*320Dots
+*   5V compatible, use with 3.3V or 5V logic
+*   Need at least 4 IOs from your MCU
+*   With PCB plate (including power supply IC, SD), compatible with 5110 interface
+* ---------------------------------------
+* 		PinMap
+* ---------------------------------------
+* 	9341		BBB
+* ---------------------------------------
+*	SDO		SPI1_D0
+* ---------------------------------------
+*	LED		GPIO1_28
+* ---------------------------------------
+*	SCK		SPI1_SCLK
+* ---------------------------------------
+*	SDI		SPI1_D1
+* ---------------------------------------
+*	D/C		GPIO1_19
+* ---------------------------------------
+*	RESET		GPIO1_16
+* ---------------------------------------
+*	CS		SPI1_CS0
+* ---------------------------------------
+*	GND		GND	
+* ---------------------------------------
+*	VCC		VCC
+* ---------------------------------------
+*
+*   Driver : https://github.com/notro/fbtft.git
+*   Using Driver in Kernel inTree Device, No outTree Device
+*   Makefile : obj += y
+*   Kconfig: source "drivers/video/fbdev/fbtft/Kconfig"
+*   modprobe fbtft_device name=mi0283qt-9a busnum=1 cs=0  gpios=reset:30,led:60 debug=1 verbose=3 speed=32000000
+*
+*=======================================
+* ads7846 Description
+*=======================================
+* ---------------------------------------
+* 		PinMap
+* ---------------------------------------
+* 	7846		BBB
+* ---------------------------------------
+*	T_IRG		GPIO1_17
+* ---------------------------------------
+*	T_DO		SPI0_D0
+* ---------------------------------------
+*	T_DIN		SPI0_D1
+* ---------------------------------------
+*	T_CS		SPI0_CS0
+* ---------------------------------------
+*	T_CLK		SPI0_SCLK
+* ---------------------------------------
+* 
+* Driver : kernel ti-4.19.79-ti-rt-r30 has Already inTree Driver
+*/
+
+
+&am33xx_pinmux {
+	/*
+	  * ili9341 lcd driver enable
+	  */
+	spi1_pins_s1: spi1_pins_s1 {
+		pinctrl-single,pins = <
+			0x190 0x33 /* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+			//0x194 0x33 /* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+			0x198 0x13 /* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+			0x19c 0x13 /* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+		>;
+	};
+
+	lcd_ctrl_pinmux: lcd_ctrl_pins {
+		pinctrl-single,pins = <
+			0x040 0x17  /* gpio1_16  OUTPUT_PULLUP | MODE7 */
+			0x078 0x17  /* gpio1_28  OUTPUT_PULLUP | MODE7 */
+			0x04C 0x17  /* gpio1_19  INPUT_PULLUP | MODE7 */
+		>;
+	};
+	/*
+	  *ads7846 touch driver enable
+	  */
+	ads7846_pins:pinmux_spi0_pins {
+		pinctrl-single,pins = <
+			0x150 0x30 /* spi0_sclk, INPUT_PULLUP | MODE0 */
+			0x154 0x10 /* spi0_d0, OUTPUT_PULLUP | MODE0 */
+			0x158 0x30 /* spi0_d1, INPUT_PULLUP | MODE0 */
+			/* For ADS7846 */
+			0x15c 0x10 /* spi0_cs0, OUTPUT_PULLUP | MODE0 */
+		>;
+	};
+};
+
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins_s1>;
+	status = "okay";
+	lcd@0{
+		compatible = "ilitek,ili9341";
+		reg = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&lcd_ctrl_pinmux>;
+		spi-max-frequency = <32000000>;
+		reset-gpios = <&gpio1 16 0>;
+		dc-gpios = <&gpio1 19 0>;
+		led-gpios = <&gpio1 28 1>;
+
+		buswidth = <8>;
+		debug = <2>;
+		bgr;
+		rotate = <90>;
+		status = "okay";
+	};
+};
+
+&spi0 {
+	#address-cells = <0x1>;
+	#size-cells = <0>;
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&ads7846_pins>;
+	ti,pindir-d0-out-d1-in = <1>;
+
+	ads7846@0 {
+		compatible = "ti,ads7846";
+		spi-max-frequency = <100000>;   /* Higher frequency causes more jitter */
+		interrupts = <17 0>;             /* pin number 17 and falling edge interrupt */
+		interrupt-parent = <&gpio1>;
+		pendown-gpio = <&gpio1 17 0>;        /* This corresponds to pin no 23 = GPIO1[17]*/
+		reg = <0>;     /* We are using chip select 0, so we enter 0 here */
+		#addr-size = <2>;
+		#page-size = <32>;
+
+		/* driver defaults */
+		ti,x-min = /bits/ 16 <0xB0>;
+		ti,y-min = /bits/ 16 <0x231>;
+		ti,x-max = /bits/ 16 <0xF49>;
+		ti,y-max = /bits/ 16 <0xF6B>;
+		ti,pressure-min = /bits/ 16 <0>;
+		ti,pressure-max = /bits/ 16 <0xFF>;
+		ti,x-plate-ohms = /bits/ 16 <0x96>;
+		ti,swap_xy = /bits/ 16 <0>;
+		ti,keep_vref_on = /bits/ 16 <0>;
+		ti,cs = /bits/ 16 <1>;
+		linux,wakeup;
+	};
+};

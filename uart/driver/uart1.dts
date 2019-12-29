@@ -1,0 +1,23 @@
+/*
+* uart1 driver's Device Tree 
+*/
+
+&am33xx_pinmux {
+	/*
+	* uart1 enable
+	*/
+	uart1_pins: pinmux_uart1_pins {
+		pinctrl-single,pins = <
+			0x180 0x30	/*uart1_rxd.uart1_rxd (PIN_INPUT_PULLUP|MUX_MODE0)*/
+			0x184 0x00      /*uart1_txd.uart1_txd (PIN_OUTPUT_PULLDOWN|MUX_MODE0)*/
+		>;
+	};
+
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins>;
+};
+
