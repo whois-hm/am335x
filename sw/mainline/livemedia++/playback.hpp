@@ -1,25 +1,7 @@
 #pragma once
 
 
-struct playback_inst
-{
-	avattr _attr;
-	playback_inst(const avattr &attr) : _attr(attr){}
-	virtual ~playback_inst (){};
-	virtual void connectionwait(){};
-	virtual void pause()  = 0;
-	virtual void resume()  = 0;
-	virtual void seek(double incr)  = 0;
-	virtual bool has(avattr::avattr_type_string &&key)  = 0;
-	virtual void play()   = 0;
-	virtual int take(const std::string &title, pixel &output) = 0;
-	virtual int take(const std::string &title, pcm_require &output) = 0;
-	static playback_inst * create_new(const avattr &attr,
-			char const *name,
-			unsigned time = 0,
-			char const *id = nullptr,
-			char const *pwd = nullptr);
-};
+
 
 
 class playback
@@ -27,7 +9,33 @@ class playback
 private:
 	playback_inst *_inst;
 public:
+	static playback_inst * create_new(const avattr &attr,
+			char const *name,
+			unsigned time = 0,
+			char const *id = nullptr,
+			char const *pwd = nullptr)
+	{
+		playback_inst *inst = nullptr;
+		if(!attr.has_frame_any())
+		{
+			return nullptr;
+		}
+		if(!access(name, 0))
+		{
+			inst = new local_playback(attr, name);
+		}
 
+		if(!inst)
+		{
+			inst = new rtsp_playback(attr, name, time, id, pwd);
+		}
+
+		if(inst)
+		{
+			inst->connectionwait();
+		}
+		return inst;
+	}
 	/*
 	 	 	 constructor local
 	 */
