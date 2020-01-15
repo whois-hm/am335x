@@ -712,6 +712,10 @@ public:
 			_scheduler->trigger(live5scheduler_rtsp_playback_startplay);
 		}
 	}
+        virtual duration_div duration()
+        {
+            return duration_div();
+        }
 	virtual int take(const std::string &title, pixel &output)
 	{
 		/*

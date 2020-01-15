@@ -1,5 +1,5 @@
 #include "_WQ.h"
-#if defined  libwq_heap_testmode
+#if defined (libwq_heap_testmode) && defined (_platform_linux32)
 static int get_process(char *buffer, unsigned nbuffer)
 {
 	if(nbuffer < 256)
@@ -192,7 +192,7 @@ void *__generate_page(size_t size)
 			/*
 			 	 	 can't get page block
 			 */
-			printf("libwq heap bad alloc detection (%s)\n");
+			printf("libwq heap bad alloc detection\n");
 			break;
 		}
 		/*
@@ -381,7 +381,7 @@ static void print_linked_page()
 			for(unsigned i = 0; i < backtrace_num; i++)
 			{
 				void **start_backtrace_address = (void **)page_rw_backtrace_ptr_address(cur);
-				printf("addr2line -f -C -e livemedia++ %08x\n", start_backtrace_address[i]);
+				printf("addr2line -f -C -e %s  %08x\n", _link.proc_name, start_backtrace_address[i]);
 			}
 			__remove_exception_handler(-4);
 			return;
@@ -397,7 +397,7 @@ static void print_linked_page()
 		for(unsigned i = 0; i < backtrace_num; i++)
 		{
 			void **start_backtrace_address = (void **)page_rw_backtrace_ptr_address(cur);
-			printf("addr2line -f -C -e livemedia++ %08x\n", start_backtrace_address[i]);
+			printf("addr2line -f -C -e %s  %08x\n", _link.proc_name, start_backtrace_address[i]);
 		}
 		total_user_mallocblock_count++;
 		cur = (void *)*((int *)page_ro_next_address(cur));
@@ -416,36 +416,52 @@ static void print_linked_page()
 }
 
 
-
+#endif
 
 WQ_API void libwq_heap_testinit()
 {
-
+#if defined (libwq_heap_testmode) && defined (_platform_linux32)
 	_link._head = NULL;
 	_link._pagesize = sysconf(_SC_PAGE_SIZE);;
 	get_process(_link.proc_name, 256);
 	Platform_criticalsection_open(&_link._lock);
+#else
+    return;
+#endif
 }
 WQ_API void libwq_heap_testdeinit()
 {
+#if defined (libwq_heap_testmode) && defined (_platform_linux32)
 	print_linked_page();
 	Platform_criticalsection_close(&_link._lock);
+#else
+    return ;
+#endif
+
 }
 WQ_API void *libwq_malloc(size_t size)
 {
+#if defined (libwq_heap_testmode) && defined (_platform_linux32)
 	void *page = __generate_page(size);
-
-
-
 	return page ? page_rw_userblockptr_address(page) : NULL;
+#else
+    void *ptr = malloc(size);
+    memset(ptr, 0, size);
+    return ptr;
+#endif
 }
 WQ_API void libwq_free(void *mem)
 {
-
+#if defined (libwq_heap_testmode) && defined (_platform_linux32)
 	__remove_page(mem);
+#else
+    free(mem);
+#endif
 }
 WQ_API void libwq_print_heap()
 {
+#if defined (libwq_heap_testmode) && defined (_platform_linux32)
 	print_linked_page();
-}
 #endif
+}
+

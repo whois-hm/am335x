@@ -1,5 +1,5 @@
 #include "_WQ.h"
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 
 #elif defined (_platform_linux)
  static void timeconv_abs(_dword ms, struct timespec *time)
@@ -36,7 +36,7 @@ static void *__start_routine (void * p)
 
 int Platform_thread_open(struct BackGround *b)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 	return WQ_INVALID;
 #elif defined (_platform_linux)
 
@@ -56,7 +56,7 @@ int Platform_thread_open(struct BackGround *b)
 }
 void Platform_thread_close(struct BackGround *b)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 	return ;
 #elif defined (_platform_linux)
 
@@ -71,7 +71,7 @@ void Platform_thread_close(struct BackGround *b)
 }
 void  Platform_sleep(_dword time)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 	return ;
 #elif defined (_platform_linux)
 
@@ -82,7 +82,7 @@ void  Platform_sleep(_dword time)
 }
 _dword Platform_tick_count()
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 	return 0;
 #elif defined (_platform_linux)
 	struct timeval v;
@@ -96,7 +96,7 @@ _dword Platform_tick_count()
 }
 void  Platform_thread_id(threadid *id)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 
 #elif defined (_platform_linux)
 	if(id) *id = pthread_self();
@@ -106,7 +106,7 @@ void  Platform_thread_id(threadid *id)
 }
 int Platform_semephore_open(semaphore *sema, _dword init, _dword max)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 	return -1;
 #elif defined (_platform_linux)
 	return sema ? sem_init(sema,  0 , init) : -1;
@@ -116,7 +116,7 @@ int Platform_semephore_open(semaphore *sema, _dword init, _dword max)
 }
 void  Platform_semaphore_close(semaphore *sema)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 
 #elif defined (_platform_linux)
 	if(sema) sem_destroy(sema);
@@ -126,7 +126,7 @@ void  Platform_semaphore_close(semaphore *sema)
 
 _dword Platform_semaphore_lock(semaphore *sema, _dword time)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 	return OBJECT_INVALID;
 #elif defined (_platform_linux)
 	int i = -1;
@@ -183,7 +183,7 @@ _dword Platform_semaphore_lock(semaphore *sema, _dword time)
 }
 void Platform_semaphore_unlock(semaphore *sema)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 
 #elif defined (_platform_linux)
 	if(sema) sem_post(sema);
@@ -193,7 +193,7 @@ void Platform_semaphore_unlock(semaphore *sema)
 
 int Platform_criticalsection_open(criticalsection *cs)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 	return GEINVAL;
 #elif defined (_platform_linux)
 	return cs ? pthread_mutex_init(cs, NULL) : WQEINVAL;
@@ -203,7 +203,7 @@ int Platform_criticalsection_open(criticalsection *cs)
 }
 void  Platform_criticalsection_close(criticalsection *cs)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 
 #elif defined (_platform_linux)
 	if(cs) pthread_mutex_destroy(cs);
@@ -214,7 +214,7 @@ void  Platform_criticalsection_close(criticalsection *cs)
 
 _dword Platform_criticalsection_lock(criticalsection *cs, _dword time)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 	return WQ_INVALID;
 #elif defined (_platform_linux)
 		int i = -1;
@@ -244,7 +244,7 @@ _dword Platform_criticalsection_lock(criticalsection *cs, _dword time)
 }
 void Platform_criticalsection_unlock(criticalsection *cs)
 {
-#if defined  (_platform_mingw) || defined(_platform_win32)
+#if defined  (_platform_mingw) || defined(_platform_win)
 
 #elif defined (_platform_linux)
 	if(cs) pthread_mutex_unlock(cs);

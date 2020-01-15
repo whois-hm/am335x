@@ -24,10 +24,20 @@ class local_playback :
 		}
 		void operator()()
 		{
-			if(raw()->best_effort_timestamp != AV_NOPTS_VALUE)
-			{
-				_pts = av_q2d(_rational) * _pts;
-			}
+                    if(raw()->pkt_dts != AV_NOPTS_VALUE)
+                    {
+                        _pts = av_frame_get_best_effort_timestamp(raw());
+                        if(_pts != AV_NOPTS_VALUE)
+                        {
+
+                            _pts = av_q2d(_rational) * _pts;
+                        }
+                    }
+//			if(raw()->best_effort_timestamp != AV_NOPTS_VALUE)
+//			{
+//                            _pts = av_q2d(_rational) * _pts;
+
+//			}
 		}
 	};
 
@@ -87,9 +97,9 @@ class local_playback :
 		void set_audio_rational(const AVRational &rational)
 		{ _audiorational = rational; }
 		virtual void usingframe( pixelframe_pts &rf)
-		{ rf(); }
+                { rf(); }
 		virtual void usingframe( pcmframe_pts &rf)
-		{ rf(); }
+                { rf(); }
 	};
 
 
@@ -114,8 +124,10 @@ class local_playback :
 				/*
 				 	 	 make frame
 				 */
+
 				pixelframe_pts _pixelframe(*frm.raw(),
 						((local_playback *)puser)->_framescheduler._videorational);
+
 
 				/*
 				 	 	 convert if different
@@ -187,7 +199,10 @@ class local_playback :
 						}
 					}
 					if(_type == AVMEDIA_TYPE_VIDEO)
+                                        {
 						makeframe = decoder::decoding(pkt, functor_makeframe_video(), this->_ptr) > 0;
+
+                                        }
 
 
 					if(_type == AVMEDIA_TYPE_AUDIO)
@@ -213,8 +228,7 @@ class local_playback :
 			public wthread<stream>
 	{
 		streamer( streamer &&rhs):
-			wthread(dynamic_cast<wthread &&>(rhs)),
-			_islock(false)
+                        wthread(dynamic_cast<wthread &&>(rhs))
 		{
 				/*
 				 	 	 warnning !
@@ -223,8 +237,7 @@ class local_playback :
 				 */
 		}
 		streamer() :
-			wthread(10, sizeof (stream::fucntor_par)),
-				_islock(false){}
+                        wthread(10, sizeof (stream::fucntor_par)){}
 		virtual ~streamer()
 		{
 			stream::fucntor_par par;
@@ -234,21 +247,12 @@ class local_playback :
 
 		void lock()
 		{
-			autolock a(_lock);
-			if(!_islock)
-			{
-				_islock = true;
-				_access.lock();
-			}
+                    _access.lock();
+
 		}
 		void unlock()
 		{
-			autolock a(_lock);
-			if(_islock)
-			{
-				_islock = false;
-				_access.unlock();
-			}
+                    _access.unlock();
 		}
 		void request_1frame()
 		{
@@ -260,8 +264,6 @@ class local_playback :
 		void operator = (streamer &&rhs) = delete;
 
 	private:
-		bool _islock;
-		std::mutex _lock;
 		std::mutex _access;
 	};
 
@@ -322,8 +324,10 @@ public:
 				_streamers[(enum AVMediaType )i].first->request_1frame();
 			}
 		}
-		throw_if()(_streamers.empty(), "can not found stream");
+                throw_if()(_streamers.empty(), "can not found stream");
+
 		pause();
+
 
 	}
 	virtual ~local_playback()
@@ -364,9 +368,14 @@ public:
 		resume();
 
 	}
+        duration_div duration()
+        {
+            bool has = false;
+            return _mediacontainer.duration(has);
+        }
 	virtual int take(const std::string &title, pixel &output)
 	{
-
+                int res = -1;
 		streamer *_targetstreamer = nullptr;
 		std::mutex *_targetstream_lock = nullptr;
 
@@ -374,42 +383,41 @@ public:
 				_targetstream_lock,
 				AVMEDIA_TYPE_VIDEO))
 		{
-			return -1;
+                        return res;
 		}
 
-		{
-			std::lock_guard<std::mutex> a(_mediacontainerlock);
-			if(_mediacontainer.eof_stream(AVMEDIA_TYPE_VIDEO))
-			{
-				return 0;
-			}
-		}
+
 
 		_targetstreamer->lock();
-		_targetstreamer->request_1frame();
+                _targetstreamer->request_1frame();
+
 		_targetstream_lock->lock();
 		_framescheduler >> output;
 		_targetstream_lock->unlock();
 		_targetstreamer->unlock();
-		return output.can_take() ? 1 : 0;
+                res = output.can_take() ? 1 : 0;
+                if(res == 0)
+                {
+                    std::lock_guard<std::mutex> a(_mediacontainerlock);
+                    if(_mediacontainer.eof_stream(AVMEDIA_TYPE_VIDEO))
+                    {
+                        res = -1;
+                    }
+                }
+                return res;
 	}
 	virtual int take(const std::string &title, pcm_require &output)
 	{
+                int res = -1;
 		streamer *_targetstreamer = nullptr;
 		std::mutex *_targetstream_lock = nullptr;
 		if(!take(_targetstreamer,
 				_targetstream_lock,
 				AVMEDIA_TYPE_AUDIO))
 		{
-			return -1;
+                        return res;
 		}
-		{
-			std::lock_guard<std::mutex> a(_mediacontainerlock);
-			if(_mediacontainer.eof_stream(AVMEDIA_TYPE_AUDIO))
-			{
-				return 0;
-			}
-		}
+
 
 		_targetstreamer->lock();
 
@@ -420,9 +428,20 @@ public:
 		_framescheduler >> output;
 
 		_targetstream_lock->unlock();
-		_targetstreamer->unlock();
 
-		return output.first.can_take() ? 1 : 0;
+                _targetstreamer->unlock();
+
+                res = output.first.can_take() ? 1 : 0;
+                if(res == 0)
+                {
+                        std::lock_guard<std::mutex> a(_mediacontainerlock);
+                        if(_mediacontainer.eof_stream(AVMEDIA_TYPE_AUDIO))
+                        {
+                                res = -1;
+                        }
+                }
+
+                return res;
 	}
 private:
 	bool take(streamer *&_targetstreamer,

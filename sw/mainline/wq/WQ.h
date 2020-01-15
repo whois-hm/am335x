@@ -1,9 +1,26 @@
 #if defined (__MINGW64__) || defined (__MINGW32__)
 #define _platform_mingw
-#elif defined (_WIN32)
+#if defined (__MINGW64__)
+#define _platform_mingw64
+#else
+#define _platform_mingw32
+#endif
+#elif defined (_WIN32 ) || defined (_WIN64)
+#define _platform_win
+#if defined (_WIN32)
 #define _platform_win32
 #else
+#define _platform_win64
+#endif
+#else
+#if defined (__GNUC__)
 #define _platform_linux
+#if defined (__x86_64__) || defined(__ppc64__)
+#define _platform_linux64
+#else
+#define _platform_linux32
+#endif
+#endif
 #endif
 
 #if defined (__cplusplus)
@@ -12,7 +29,7 @@
 #define EXTERN_C
 #endif
 
-#if defined (_platform_mingw) || defined(_platform_win32)
+#if defined (_platform_mingw) || defined(_platform_win)
 #if defined (WQ_API_EXPORT)
 #define WQ_API  EXTERN_C __declspec(dllexport)
 #else
@@ -26,7 +43,7 @@
 #endif
 #endif
 
-
+//#define libwq_heap_testmode
 #include  <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -169,17 +186,9 @@ WQ_API void SEMA_unlock(semaphore *sem);
 WQ_API void SEMA_close(semaphore *sem);
 
 
-#define libwq_heap_testmode
-#if defined libwq_heap_testmode
 WQ_API void libwq_heap_testinit();
 WQ_API void libwq_heap_testdeinit();
 WQ_API void *libwq_malloc(size_t size);
 WQ_API void libwq_free(void *mem);
 WQ_API void libwq_print_heap();
-#else
-#define libwq_heap_testinit()
-#define libwq_heap_testdeinit()
-#define libwq_malloc(s) malloc(s)
-#define libwq_free(m)	free(m)
-#define libwq_print_heap()
-#endif
+

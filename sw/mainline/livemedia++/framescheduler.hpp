@@ -68,6 +68,7 @@ public:
 	}
 	void operator <<(const _Tframe_pixel &rf)
 	{
+
 		_pixelframe.push_back(rf);
 		usingframe(_pixelframe.back());
 	}
@@ -176,6 +177,7 @@ protected:
 	double _pts;
 	pixelframe_presentationtime(const pixelframe &f) : pixelframe(f), _pts(0.0){}
 	virtual ~pixelframe_presentationtime(){}
+public:
 	virtual double getpts() = 0;
 };
 class pcmframe_presentationtime : public pcmframe
@@ -184,8 +186,10 @@ protected:
 	double _pts;
 	pcmframe_presentationtime(const pcmframe &f) : pcmframe(f), _pts(0.0){}
 	virtual ~pcmframe_presentationtime(){}
+        virtual double guesspts() = 0;
+public:
 	virtual double getpts() = 0;
-	virtual double guesspts() = 0;
+
 };
 
 /* Skip or repeat the frame. Take delay into account
@@ -347,7 +351,12 @@ public:
 
 	pixel &operator >>(pixel &pf)
 	{
-		return framebuffering_type<_type_pixelframe, _type_pcmframe>::operator >>(pf);
+            if(!framebuffering_type<_type_pixelframe, _type_pcmframe>::_pixelframe.empty())
+            {
+                pf.setpts(framebuffering_type<_type_pixelframe, _type_pcmframe>::_pixelframe.front().getpts());
+            }
+
+            return framebuffering_type<_type_pixelframe, _type_pcmframe>::operator >>(pf);
 	}
 	pcm_require &operator >>(pcm_require &pf)
 	{
@@ -370,6 +379,9 @@ public:
 			double audio_current_clock =
 					_audio_last_pts - (framebuffering_type<_type_pixelframe, _type_pcmframe>::_pcmframe.first._index * std::get<0>(framebuffering_type<_type_pixelframe, _type_pcmframe>::_pcmframe.first.audio_output_attr))/
 					_audio_bps;
+
+                        pf.first.setpts(audio_current_clock);
+
 
 			diff = audio_current_clock - master_clock();
 			if(diff >= AV_NOSYNC_THRESHOLD)

@@ -83,6 +83,9 @@ private:
 
 	void conv(pcmframe &frm)
 	{
+            //TODO metadata copy ?
+            //ffmpeg has copy metadata funtion
+            //but not copy our need data
 		throw_if ti;
 		avframe_class _new;
 		_new.raw()->channel_layout = av_get_default_channel_layout(std::get<0>(_renew));
@@ -90,8 +93,17 @@ private:
 		_new.raw()->sample_rate = std::get<1>(_renew);
 		_new.raw()->format = std::get<2>(_renew);
 
+                _new.raw()->pts = frm.raw()->pts;
+                _new.raw()->pkt_dts = frm.raw()->pkt_dts;
+                _new.raw()->key_frame = frm.raw()->key_frame;
+                _new.raw()->repeat_pict = frm.raw()->repeat_pict;
+                _new.raw()->best_effort_timestamp = frm.raw()->best_effort_timestamp;
+                _new.raw()->pkt_pos = frm.raw()->pkt_pos;
+                _new.raw()->pkt_duration = frm.raw()->pkt_duration;
+                _new.raw()->pkt_size = frm.raw()->pkt_size;
 
-		//TODO metadata copy ?
+
+
 		ti(swr_convert_frame((struct SwrContext *)_lock_context, _new.raw(), frm.raw()),
 				"can't swr_convert");
 		frm = *_new.raw();
@@ -105,6 +117,14 @@ private:
 		_new.raw()->width = std::get<0>(_renew);
 		_new.raw()->height = std::get<1>(_renew);
 		_new.raw()->format = std::get<2>(_renew);
+                _new.raw()->pts = frm.raw()->pts;
+                _new.raw()->pkt_dts = frm.raw()->pkt_dts;
+                _new.raw()->key_frame = frm.raw()->key_frame;
+                _new.raw()->repeat_pict = frm.raw()->repeat_pict;
+                _new.raw()->best_effort_timestamp = frm.raw()->best_effort_timestamp;
+                _new.raw()->pkt_pos = frm.raw()->pkt_pos;
+                _new.raw()->pkt_duration = frm.raw()->pkt_duration;
+                _new.raw()->pkt_size = frm.raw()->pkt_size;
 
 		ti(av_frame_get_buffer(_new.raw(), 0),
 				"can't av_frame_get_buiffer");

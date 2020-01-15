@@ -7,18 +7,19 @@ private:
 	const base_deallocator _deallocator;
 	uint8_t *_data_ptr;
 	int _data_size;
+        double _pts;/*set presentation time if known*/
 public :
 	raw_media_data() :
 		_allocator(__base__malloc__),
 		_deallocator(__base__free__),
 		_data_ptr(nullptr),
-		_data_size(0) { }
+                _data_size(0),_pts(0.0) { }
 	raw_media_data
 	(const raw_media_data &rhs) :
 		_allocator(__base__malloc__),
 		_deallocator(__base__free__),
 		_data_ptr(nullptr),
-		_data_size(0)
+                _data_size(0),_pts(0.0)
 	{
 		if(rhs._data_ptr &&
 				rhs._data_size > 0)
@@ -26,6 +27,7 @@ public :
 			_data_size = rhs._data_size;
 			_data_ptr = (uint8_t *)_allocator(_data_size);
 			memcpy(_data_ptr, rhs._data_ptr, _data_size);
+                        _pts = rhs._pts;
 		}
 	}
 	virtual ~raw_media_data()
@@ -37,6 +39,15 @@ public :
 		_data_ptr = nullptr;
 		_data_size = 0;
 	}
+        void setpts(double pts)
+        {
+           _pts = pts;
+        }
+        double getpts()
+        {
+            return _pts;
+        }
+
 	const base_allocator &allocator() const
 	{
 		return _allocator;
@@ -113,6 +124,7 @@ public :
 	}
 	virtual bool can_take()
 	{
+
 		return read() != nullptr &&
 				size() > 0;
 	}

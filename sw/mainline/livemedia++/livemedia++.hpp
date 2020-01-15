@@ -19,11 +19,28 @@ public:
 	/*
 	 	 create or reference the instance
 	 */
-	static livemedia_pp*ref();
-	/*
-	 	 delete our instance
-	 */
-	static void unref();
+        static livemedia_pp*ref(bool bc = true)
+        {
+            static livemedia_pp *obj = nullptr;
+            if(bc)
+            {
+                if(!obj)
+                {
+                    libwq_heap_testinit();
+                    obj = new livemedia_pp;
+                }
+            }
+            else
+            {
+                if(obj)
+                {
+                    delete obj;
+                    libwq_heap_testdeinit();
+                }
+                obj = nullptr;
+            }
+            return obj;
+        }
 
 	/*
 	 	 	 return the matching convert context of ffmpeg

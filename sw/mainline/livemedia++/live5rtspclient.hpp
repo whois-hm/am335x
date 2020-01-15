@@ -64,6 +64,14 @@ public:
 		read_subsession _read_subsession;
 		ready_session _ready_session;
 		except_session _except_session;
+                report() :
+                    _ptr(nullptr),
+                    _setup_subsession(nullptr),
+                    _except_subsession(nullptr),
+                    _bye_subsession(nullptr),
+                    _read_subsession(nullptr),
+                    _ready_session(nullptr),
+                    _except_session(nullptr){}
 		report(void *ptr,
 				setup_subsession &&a,
 				except_subsession &&b,
@@ -131,7 +139,7 @@ public:
 			}
 		}
 	}
-private:
+protected:
 	/*
 		 use for subsession's "i" flag
 	 */
@@ -342,7 +350,7 @@ private:
 
 
 
-	void response_option(int code, char* str)
+        virtual void response_option(int code, char* str)
 	{
 		do
 		{
@@ -355,7 +363,7 @@ private:
 		}while(0);
 		delete [] str;
 	}
-	void response_describe(int code, char* str)
+        virtual void response_describe(int code, char* str)
 	{
 		do
 		{
@@ -399,7 +407,7 @@ private:
 
 		delete [] str;
 	}
-	void response_setup(int code, char* str)
+        virtual void response_setup(int code, char* str)
 	{
 		/*
 		 	 setup subseesion
@@ -464,7 +472,7 @@ private:
 			}
 		}
 	}
-	void response_play(int code, char* str)
+        virtual void response_play(int code, char* str)
 	{
 		if(code != 0)
 		{

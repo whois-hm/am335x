@@ -6,7 +6,7 @@
 
 class playback
 {
-private:
+protected:
 	playback_inst *_inst;
 public:
 	static playback_inst * create_new(const avattr &attr,
@@ -40,7 +40,7 @@ public:
 	 	 	 constructor local
 	 */
 	playback(const avattr &attr, char const *name) :
-		_inst(playback_inst::create_new(attr, name))
+                _inst(create_new(attr, name))
 	{ throw_if()(!_inst, "can't create playback inst");}
 
 	/*
@@ -51,7 +51,7 @@ public:
 						unsigned connectiontime,
 						char const *auth_id = nullptr,
 						char const *auth_pwd = nullptr) :
-		_inst(playback_inst::create_new(attr, url, connectiontime, auth_id, auth_pwd))
+                _inst(create_new(attr, url, connectiontime, auth_id, auth_pwd))
 	{ throw_if()(!_inst, "can't create playback inst");}
 
 	virtual ~playback()
@@ -65,6 +65,7 @@ public:
 	bool has(avattr::avattr_type_string &&key)
 	{return _inst->has(static_cast<avattr::avattr_type_string &&>(key));}
 	void play(){_inst->play();}
+        duration_div duration(){return _inst->duration();}
 
 	/*
 	 	 	 if 0 > 1 take frame
