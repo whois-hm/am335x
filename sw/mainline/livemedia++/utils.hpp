@@ -1,6 +1,9 @@
 #pragma once
 
 
+	
+
+
 typedef std::tuple
 		<
 		int,/*hour*/
