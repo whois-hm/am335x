@@ -1,0 +1,83 @@
+
+#pragma once
+class ui_platform_fake : 
+	public ui
+{
+private:
+	semaphore _sem;	
+	bool  _run;
+public :
+	ui_platform_fake(char const *name) : 
+		ui(name, platform_on_fake){_run = false;}
+	virtual ~ui_platform_fake()
+		{
+			if(_run)
+			{
+				SEMA_unlock(&_sem);
+				SEMA_close(&_sem);
+			}
+			_run =false;
+		}
+
+virtual	bool make_window(ui_handle win_name, 
+		ui_rect &&rect)
+		{
+			return true;
+		}
+		
+virtual	bool make_pannel(ui_handle  parent_win, 
+		ui_handle pannel_name,
+		ui_color &&color,
+		ui_rect &&rect)
+		{
+			return true;
+		}
+virtual	bool make_label(ui_handle parent_win,
+		ui_handle label_name,
+		char const *text,
+		ui_color &&color,
+		ui_rect &&rect)
+		{
+			return true;
+		}
+virtual	void update_pannel(ui_handle  parent_win, 
+		ui_handle pannel_name,
+		ui_color &&color){}
+virtual	void update_pannel(ui_handle  parent_win, 
+		ui_handle pannel_name,
+		pixel &pix){}
+virtual	void update_pannel(ui_handle  parent_win, 
+		ui_handle pannel_name,
+		pixel *&pix,
+		bool bfree = false)
+		{
+			if(bfree)
+			{
+				delete pix;
+				pix = nullptr;
+			}
+		}
+virtual	void update_label(ui_handle parent_win,
+		ui_handle label_name,
+		char const *text,
+		ui_color &&color){}
+virtual enum AVPixelFormat diplay_format(ui_handle  win)
+		{
+			/*return normally use format */
+			return AV_PIX_FMT_RGB24;
+		}
+virtual	bool install_event_filter(ui_event_filter &&filter)
+		{
+			return true;
+		}
+virtual	int exec()
+		{
+			if(SEMA_open(&_sem, 0, 1) < 0)
+			{
+				return -1;
+			}
+			_run = true;
+			SEMA_lock(&_sem, INFINITE);
+		}	
+};
+

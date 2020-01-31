@@ -15,6 +15,8 @@ namespace avattr_key
 	static constexpr char const * const not_found = "not found";
 	static constexpr char const * const frame_video = "frame video";
 	static constexpr char const * const frame_audio = "frame audio";
+	static constexpr char const * const video_x = "video x";
+	static constexpr char const * const video_y = "video y";
 	static constexpr char const * const width = "width";
 	static constexpr char const * const height = "height";
 	static constexpr char const * const pixel_format = "pixel format";

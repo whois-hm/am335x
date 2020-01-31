@@ -1,6 +1,6 @@
 #pragma once
 
-class directfb
+class directfb 
 {
 	typedef unsigned char fb_luma;
 	typedef unsigned short fb_rgb565;
@@ -110,14 +110,19 @@ class directfb
 	
 
 private:
-	int _fd;
 	char const *_device;
+	int _fd;
 	int _x_res;
 	int _y_res;
 	void *_ptr;
 	size_t _nptr;
 	int _byteper_pixel;
+	int _x;
+	int _y;
+	int _w;
+	int _h;
 	enum AVPixelFormat _fmt;
+	
 	__paint *_paint;
 	bool open_test()
 	{
@@ -139,11 +144,9 @@ private:
 			{
 				break;
 			}
-			_ptr = mmap(nullptr, fix.smem_len, PROT_READ |  PROT_WRITE, MAP_FILE | MAP_SHARED, _fd, 0);
-			if(_ptr == (unsigned char *)-1)
-			{
-				break;
-			}
+
+
+			
 			_x_res = var.xres;
 			_y_res = var.yres;
 			_nptr = fix.smem_len;
@@ -154,6 +157,29 @@ private:
 					_byteper_pixel == 3 ? AV_PIX_FMT_RGB24 	: 
 					_byteper_pixel == 4 ? AV_PIX_FMT_RGB32 	: 
 					AV_PIX_FMT_NONE;
+
+								
+			/*
+				calc resolution
+			*/
+			if(_x < 0) _x = 0;
+			if(_x > _x_res) _x = _x_res;
+			
+			if(_y < 0) _y = 0;
+			if(_y > _y_res) _y = _y_res;
+
+			if(_w < 0) _w = _x_res;
+			if(_w > _x_res) _w = _x_res;
+
+			if(_h < 0) _h = var.yres;
+			if(_h > _y_res) _h = _y_res;
+
+			
+			_ptr = mmap(nullptr, fix.smem_len, PROT_READ |  PROT_WRITE, MAP_FILE | MAP_SHARED, _fd, 0);
+			if(_ptr == (unsigned char *)-1)
+			{
+				break;
+			}
 
 			if(_fmt == AV_PIX_FMT_GRAY8)	_paint = new __paint_luma();					
 			if(_fmt == AV_PIX_FMT_RGB565) 	_paint = new __paint_565();
@@ -185,28 +211,34 @@ private:
 		{
 			delete _paint;
 		}
-		_device = nullptr;
 		_x_res = -1;
 		_y_res = -1;
 		_byteper_pixel = -1;
 		_nptr = -1;
-		_fmt = AV_PIX_FMT_NONE;
-		
+
 	}
 
 
 
 public:
-	directfb(char const *dev) :
-		_fd(-1),
+	directfb(char const *dev, 
+		int x = -1,
+		int y = -1,
+		int w = -1,
+		int h = -1) :
 		_device(dev),
+		_fd(-1),
 		_x_res(-1),
 		_y_res(-1),
 		_ptr((unsigned char *)-1),
 		_nptr(-1),
 		_byteper_pixel(-1),
+		_x(x),
+		_y(y),
+		_w(w),
+		_h(h),
 		_fmt(AV_PIX_FMT_NONE),
-		_paint(nullptr)
+		_paint(nullptr) 
 	{
 		throw_if a;
 		
@@ -222,10 +254,15 @@ public:
 		int w,
 		int h)
 	{
+		x += _x;
+		y += _y;
+		w += _x;
+		h += _y;
+		
 		unsigned start_x = std::min(x, _x_res);
 		unsigned start_y = std::min(y, _y_res);
-		unsigned max_x = std::min(w, _x_res);
-		unsigned max_y = std::min(h, _y_res);
+		unsigned max_x = std::min(w + _w, _x_res);
+		unsigned max_y = std::min(h + _y, _y_res);
 		unsigned current_y;
 		unsigned idx = 0;
 
@@ -244,10 +281,15 @@ public:
 		int w, 
 		int h)
 	{
+		x += _x;
+		y += _y;
+		w += _x;
+		h += _y;
 		unsigned start_x = std::min(x, _x_res);
 		unsigned start_y = std::min(y, _y_res);
-		unsigned max_x = std::min(w, _x_res);
-		unsigned max_y = std::min(h, _y_res);
+		unsigned max_x = std::min(w + _w, _x_res);
+		unsigned max_y = std::min(h + _y, _y_res);
+
 		unsigned current_y;
 
 		for(; start_y < max_y; start_y++)
@@ -262,7 +304,9 @@ public:
 	void draw(char const *str, 
 		const triple_int &rgb,
 		int x,
- 		int y)
+ 		int y, 
+ 		int w,
+ 		int h)
 	{
 	
 	static unsigned char fontdata_8x8[256*8] = {
@@ -2828,21 +2872,29 @@ public:
 		0x00, /* 00000000 */
 		};
 
+		x += _x;
+		y += _y;
+		w += _x;
+		h += _y;
 		unsigned start_x = std::min(x, _x_res);
 		unsigned start_y = std::min(y, _y_res);
-		unsigned max_x = _x_res;
-		unsigned max_y = _y_res;
+		unsigned max_x = std::min(w + _w, _x_res);
+		unsigned max_y = std::min(h + _y, _y_res);
+
 		unsigned current_y;
 		unsigned font_x = 0;
 		unsigned font_y = 0;
 		unsigned bit;
 
+
+		
+
 			
 		for(int idx = 0; str && *str; str++, idx++)
 		{	
 
-			start_x = std::min(x, _x_res) + (idx * 8);
-			start_y = std::min(y, _y_res);
+			start_x = std::min((int)start_x, _x_res) + (idx * 8);
+			start_y = std::min((int)start_y, _y_res);
 			font_x = 0;
 			font_y = 0;
 			for(; (font_y < 8) && (start_y < max_y); font_y++,start_y++)
@@ -2858,25 +2910,28 @@ public:
 		}
 
 	};
-	
-	
-	int get_resolution_x()
+	int get_start_x() const
 	{
-		return _x_res;
+		return _x;
 	}
-	int get_resolution_y()
+	int get_start_y() const
 	{
-		return _y_res;			
-	}
-	
-	char const *get_device_name()
+		return _y;
+	}	
+	int get_resolution_x() const
 	{
-		return _device;
+		return _w;
 	}
-	enum AVPixelFormat get_pixfmt()
+	int get_resolution_y() const
+	{
+		return _y;			
+	}	
+
+	enum AVPixelFormat get_pixfmt() const
 	{
 		return _fmt;
 	}
+
 };
 
 
