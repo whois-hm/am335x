@@ -16,7 +16,8 @@ typedef std::tuple<int, int, int, int> ui_rect;	/*geometry value*/
 */
 enum platform_event {
 	platform_event_error = 0, 	/*system has error, we recommend go to shutdown */
-	platform_event_touch		/*screen touch has signaled*/
+	platform_event_touch,		/*screen touch has signaled*/
+	platform_event_user = 125	/*user custom event*/
 };
 /*platform_event_touch's parameter*/
 struct pe_touch
@@ -24,7 +25,7 @@ struct pe_touch
 	/*
 		x : resolusion x
 		y : resolusion y
-		press : 0 mean finger press  other release
+		press : x > 0 mean finger press  other release
 		
 	*/
 	int x, y, press;
@@ -38,6 +39,17 @@ struct pe_error
 	*/
 	int error_code;
 };
+struct pe_user
+{
+	/*
+		user custom parameter
+	*/
+
+	unsigned _code;
+	void *_ptr;
+	
+};
+
 /*packing platform events*/
 struct platform_par
 {
@@ -46,6 +58,7 @@ struct platform_par
 	{
 		struct pe_touch touch;
 		struct pe_error error;
+		struct pe_user user;
 	};
 };	
 
@@ -88,6 +101,7 @@ public:
 	}
 	const struct pe_touch *touch(){return &_par.touch;}		
 	const struct pe_error *error(){return &_par.error;}
+	const struct pe_user *user(){return &_par.user;}
 	std::list<std::string> _effect_windows;
 	std::list<std::string> _effect_widgets;
 	platform_par _par;
@@ -96,12 +110,21 @@ typedef std::function<void (ui_event &)> ui_event_filter;
 
 class ui
 {
-protected:
-	ui(char const *name, 
-		enum platform platform = platform_on_fake):
-		_platform(platform){}
-	virtual ~ui(){}
 
+
+protected:
+	enum platform _platform;
+	bool _bloop_flag;
+public:
+		ui(char const *name, 
+		enum platform platform = platform_on_fake):
+		_platform(platform),
+			_bloop_flag(false){}
+	virtual ~ui(){}
+	void set_loopflag(bool bloop)
+	{
+	 	_bloop_flag = bloop;
+	}
 virtual	bool make_window(ui_handle win_name, 
 		ui_rect &&rect) = 0;
 virtual	bool make_pannel(ui_handle  parent_win, 
@@ -127,8 +150,12 @@ virtual	void update_label(ui_handle parent_win,
 		ui_handle label_name,
 		char const *text,
 		ui_color &&color) = 0;
+/*throw your custom event*/
+virtual void write_user(struct pe_user &&user) = 0;
+virtual void write_user(struct pe_user &user) = 0;
 
-virtual enum AVPixelFormat diplay_format(ui_handle  win) = 0;
+
+
 
 		/*
 			register if you want receiving internal notify event 
@@ -137,10 +164,8 @@ virtual	bool install_event_filter(ui_event_filter &&filter) = 0;
 		/*
 			starting platform
 		*/
-virtual	int exec() = 0;
-	
-	enum platform _platform;
-public:
+	virtual	int exec() = 0;
+	virtual triple_int display_available() = 0;
 	enum platform platform() const 
 	{
 		return _platform;

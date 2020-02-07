@@ -22,6 +22,10 @@ inline touch *touch_ref(bool bcreate = true)
 		if(!tou)
 		{
 			tou = new touch(true);
+			/*
+				enable 100ms 5sampling err size 10
+			*/
+			tou->enable_debounce_mode(100000,5,10);
 		}
 		return tou;
 	}
@@ -45,18 +49,16 @@ inline touch *touch_ref(bool bcreate = true)
 #if defined (fbenv)	/*if enable fb*/
 #include "directfb.hpp"
 inline directfb *fb_ref(
-	int x = -1,
-	int y = -1,
-	int w = -1, 
-	int h = -1,
 	bool bcreate = true)
 {
 	static directfb *fb = nullptr;
+
 	if(bcreate)
 	{
+
 		if(!fb)
-		{
-			fb = new directfb(fbenv, x, y, w, h);
+		{		
+			fb = new directfb(fbenv);
 		}
 		return fb;
 	}
@@ -69,10 +71,6 @@ inline directfb *fb_ref(
 }
 #else/*if disable fb*/
 inline direct_fb *fb_ref(
-	int x = -1,
-	int y = -1,
-	int w = -1, 
-	int h = -1,
 	bool bcreate = true)
 {
 	return nullptr;
@@ -118,15 +116,12 @@ private:
 			{
 			public:
 				label(ui_handle n, 
-					char const *label,
+					char const *text,
 					const ui_color &color,
 					const ui_rect &rect) : 
 					widget(n, color, rect),
-						_label(label){}
+						_label(text){}
 				virtual ~label(){}
-				ui_handle _handle;
-				ui_color _color;
-				ui_rect _rect;
 				char const *_label; 
 			};
 			
@@ -172,7 +167,10 @@ private:
 private:
 	void event_handling_error(ui_event &e)
 	{
-		
+		/*
+			current error has been -10
+			touch receiver has broken
+		*/
 	}
 		
 	void event_handling_touch(ui_event &e)
@@ -181,23 +179,24 @@ private:
 		{
 			if(std::get<0>(it->_rect) >= e.touch()->x && 
 				(std::get<0>(it->_rect) + std::get<2>(it->_rect)) <= (e.touch()->x) &&
-				std::get<1>(it->_rect) >= e.touch()->y && 
+				 std::get<1>(it->_rect) >= e.touch()->y && 
 				(std::get<1>(it->_rect) + std::get<3>(it->_rect)) <= (e.touch()->y))
 			{
 				e._effect_windows.push_back(std::string(it->_handle));
 			}
 			for(auto &wit : it->_widgets)
 			{
-				int x =  std::get<0>(it->_rect) +  std::get<0>(wit->_rect);
-				int y = std::get<1>(it->_rect) +  std::get<1>(wit->_rect);
-				int w = x + std::min(std::get<2>(it->_rect), std::get<2>(wit->_rect));
-				int h = h + std::min(std::get<3>(it->_rect), std::get<3>(wit->_rect));
-				if(x >= e.touch()->x && 
-					w <= (e.touch()->x) &&
-					y >= e.touch()->y && 
-					y <= (e.touch()->y))
+				int x = std::get<0>(it->_rect) + std::get<0>(wit->_rect);
+				int y = std::get<1>(it->_rect) + std::get<1>(wit->_rect);
+				int w = x + std::min((std::get<0>(it->_rect) + std::get<2>(it->_rect)) - x, std::get<2>(wit->_rect));
+				int h = y + std::min((std::get<1>(it->_rect) + std::get<3>(it->_rect)) - y, std::get<3>(wit->_rect));
+		
+				if(x <= e.touch()->x && 
+					w >= (e.touch()->x) &&
+					y <= e.touch()->y && 
+					h >= (e.touch()->y))
 				{
-					e._effect_widgets.push_back(std::string(it->_handle));
+					e._effect_widgets.push_back(std::string(wit->_handle));
 				}				
 			}					
 		}
@@ -254,12 +253,15 @@ public:
 		_ts_reader_thread(nullptr)
 
 	{
+		_bloop_flag = false;
 		_pipe[0] = -1;
 		_pipe[1] = -1;
 
 		/*full buffer request*/
 		fb_ref();
 		touch_ref();
+		_workq =  WQ_open(sizeof(struct platform_par) , 10);
+
 		_platform = platform_on_embedded;		
 	}
 	virtual ~ui_platform_embedded()
@@ -279,7 +281,6 @@ public:
 		if(_pipe[1] != -1) close (_pipe[0]);
 		_pipe[0] = -1;
 		_pipe[1] = -1;
-
 		/*
 			when application has exit, 
 			revert to the color originally created
@@ -301,9 +302,8 @@ public:
 
 		WQ_close(&_workq);
 
-		fb_ref(-1, -1, -1, -1, false);
+		fb_ref(false);
 		touch_ref(false);
-		
 	}
 virtual bool make_window(ui_handle win_name, 
 		ui_rect &&rect)
@@ -332,12 +332,17 @@ virtual bool make_pannel(ui_handle  parent_win,
 			return false;
 			
 		}
+
+		int x = std::get<0>(target->_rect) + std::get<0>(rect);
+		int y = std::get<1>(target->_rect) + std::get<1>(rect);
+		int w = std::min((std::get<0>(target->_rect) + std::get<2>(target->_rect)) - x, std::get<2>(rect));
+		int h = std::min((std::get<1>(target->_rect) + std::get<3>(target->_rect)) - y, std::get<3>(rect));
 		
 		fb_ref()->draw(color,
-		std::get<0>(target->_rect) + std::get<0>(rect),
-		std::get<1>(target->_rect) + std::get<1>(rect),
-		std::min(std::get<2>(target->_rect), std::get<2>(rect)),
-		std::min(std::get<3>(target->_rect), std::get<3>(rect)));
+		x,
+		y,
+		w,
+		h);
 		target->widget_push_back(new pannel(pannel_name,
 			color,
 			rect));
@@ -355,17 +360,25 @@ virtual bool make_label(ui_handle parent_win,
 			return false;
 			
 		}
-		
+
+		int x = std::get<0>(target->_rect) + std::get<0>(rect);
+		int y = std::get<1>(target->_rect) + std::get<1>(rect);
+		int w = std::min((std::get<0>(target->_rect) + std::get<2>(target->_rect)) - x, std::get<2>(rect));
+		int h = std::min((std::get<1>(target->_rect) + std::get<3>(target->_rect)) - y, std::get<3>(rect));
+
+
 		fb_ref()->draw(text,
 		triple_int(std::get<0>(color), std::get<1>(color), std::get<2>(color)),
-		std::get<0>(target->_rect) + std::get<0>(rect),
-		std::get<1>(target->_rect) + std::get<1>(rect),
-		std::min(std::get<2>(target->_rect), std::get<2>(rect)),
-		std::min(std::get<3>(target->_rect), std::get<3>(rect)));
-		target->widget_push_back(new label(label_name,
+		x,
+		y,
+		w,
+		h);
+		label *p = new label(label_name,
 			text,
 			color,
-			rect));
+			rect);
+		target->widget_push_back(p);
+
 		return true;
 	}
 virtual void update_pannel(ui_handle  parent_win, 
@@ -383,13 +396,17 @@ virtual void update_pannel(ui_handle  parent_win,
 			return;
 		}
 		wid->_color = color;
+		int x = std::get<0>(target->_rect) + std::get<0>(wid->_rect);
+		int y = std::get<1>(target->_rect) + std::get<1>(wid->_rect);
+		int w = std::min((std::get<0>(target->_rect) + std::get<2>(target->_rect)) - x, std::get<2>(wid->_rect));
+		int h = std::min((std::get<1>(target->_rect) + std::get<3>(target->_rect)) - y, std::get<3>(wid->_rect));
 
 		
  		fb_ref()->draw(wid->_color,
-		std::get<0>(target->_rect) + std::get<0>(wid->_rect),
-		std::get<1>(target->_rect) + std::get<1>(wid->_rect),
-		std::min(std::get<2>(target->_rect), std::get<2>(wid->_rect)),
-		std::min(std::get<3>(target->_rect), std::get<3>(wid->_rect)));
+		x,
+		y,
+		w,
+		h);
 	}
 
 virtual void update_pannel(ui_handle  parent_win, 
@@ -414,11 +431,17 @@ virtual void update_pannel(ui_handle  parent_win,
 		{
 			return;
 		}
+		 int x = std::get<0>(target->_rect) + std::get<0>(wid->_rect);
+		int y = std::get<1>(target->_rect) + std::get<1>(wid->_rect);
+		int w = std::min((std::get<0>(target->_rect) + std::get<2>(target->_rect)) - x, std::get<2>(wid->_rect));
+		int h = std::min((std::get<1>(target->_rect) + std::get<3>(target->_rect)) - y, std::get<3>(wid->_rect));
+
+
 		fb_ref()->draw((void *)pix.read(),
-				std::get<0>(target->_rect) + std::get<0>(wid->_rect),
-		std::get<1>(target->_rect) + std::get<1>(wid->_rect),
-		std::min(std::get<2>(target->_rect), std::get<2>(wid->_rect)),
-		std::min(std::get<3>(target->_rect), std::get<3>(wid->_rect)));
+		x,
+		y,
+		w,
+		h);
 	}
 virtual void update_pannel(ui_handle  parent_win, 
 		ui_handle pannel_name,
@@ -435,7 +458,9 @@ virtual void update_pannel(ui_handle  parent_win,
 				delete pix;
 				pix = nullptr;
 			}
+
 		}
+		
 	}
 virtual void update_label(ui_handle parent_win,
 		ui_handle label_name,
@@ -453,23 +478,29 @@ virtual void update_label(ui_handle parent_win,
 			return;
 		}
 		wid->_color = color;
+
 		wid->_label = text;
 		/*
 			label has no background,
 			so we initialize color from windows
 		*/
+		 int x = std::get<0>(target->_rect) + std::get<0>(wid->_rect);
+		int y = std::get<1>(target->_rect) + std::get<1>(wid->_rect);
+		int w = std::min((std::get<0>(target->_rect) + std::get<2>(target->_rect)) - x, std::get<2>(wid->_rect));
+		int h = std::min((std::get<1>(target->_rect) + std::get<3>(target->_rect)) - y, std::get<3>(wid->_rect));
+
 		fb_ref()->draw(ui_color(0,0,0),
-		std::get<0>(target->_rect) + std::get<0>(wid->_rect),
-		std::get<1>(target->_rect) + std::get<1>(wid->_rect),
-		std::min(std::get<2>(target->_rect), std::get<2>(wid->_rect)),
-		std::min(std::get<3>(target->_rect), std::get<3>(wid->_rect)));
+		x,
+		y,
+		w,
+		h);
 
 		fb_ref()->draw(wid->_label,
 		wid->_color,
-		std::get<0>(target->_rect) + std::get<0>(wid->_rect),
-		std::get<1>(target->_rect) + std::get<1>(wid->_rect),
-		std::min(std::get<2>(target->_rect), std::get<2>(wid->_rect)),
-		std::min(std::get<3>(target->_rect), std::get<3>(wid->_rect)));
+		x,
+		y,
+		w,
+		h);
 	}
 virtual bool install_event_filter(ui_event_filter &&filter)
 	{
@@ -489,11 +520,11 @@ virtual int exec()
 			return -1;
 		}
 		
-		_workq =  WQ_open(sizeof(struct platform_par) , 10);
 		if(!_workq)
 		{
 			return -1;
 		}
+
 		/*
 			run touch driver on thread
 		*/
@@ -532,15 +563,18 @@ virtual int exec()
 							}
 							if(fds[1].revents & (POLLIN | POLLPRI))
 							{
-								touch_ref()->wait_samp();
-								triple_int val = touch_ref()->get_samp();
-								struct platform_par par;
-								par.event = platform_event_touch;
-								par.touch.x = std::get<0>(val);
-								par.touch.y = std::get<1>(val);
-								par.touch.press = std::get<2>(val);
-								
-								WQ_send(_workq, &par, sizeof(par), INFINITE, 0);
+								triple_int val;
+								int res = touch_ref()->read_samp(val);
+								if(!res)
+								{
+									struct platform_par par;
+									par.event = platform_event_touch;
+									par.touch.x = std::get<0>(val);
+									par.touch.y = std::get<1>(val);
+									par.touch.press = std::get<2>(val);
+									
+									WQ_send(_workq, &par, sizeof(par), INFINITE, 0);
+								}
 							}
 						}
 						
@@ -550,7 +584,8 @@ virtual int exec()
 		/*
 			start our main loop
 		*/
-		while(1)
+		set_loopflag(true);
+		while(_bloop_flag)
 		{
 			_dword res = WQ_recv(_workq, &par, &size, INFINITE);
 			if(res != WQ_SIGNALED)
@@ -560,16 +595,36 @@ virtual int exec()
 			
 			event_filtering((struct platform_par *)par);
 		}
+		return 0;
 	}
+virtual void write_user(struct pe_user &&user)
+{
+	struct platform_par par;
+	par.event = platform_event_user;
+	par.user = user;	
+	WQ_send(_workq, &par, sizeof(par), INFINITE, 0);
+}
+virtual void write_user(struct pe_user &user)
+{
+	struct platform_par par;
+	par.event = platform_event_user;
+	par.user = user;	
+	_dword ret = WQ_send(_workq, &par, sizeof(par), INFINITE, 0);
+}
 
-virtual enum AVPixelFormat diplay_format(ui_handle  win)
+virtual triple_int display_available()
+
 	{
-		window *target = find_window(win);
-		if(!target)
+		if(fb_ref())
 		{
-			return AV_PIX_FMT_NONE; 
+			printf("%d %d %d\n", fb_ref()->get_resolution_x(), 
+				fb_ref()->get_resolution_y(), 
+				fb_ref()->get_pixfmt());
+			return  triple_int(fb_ref()->get_resolution_x(), 
+				fb_ref()->get_resolution_y(),
+				fb_ref()->get_pixfmt());
 		}
-		return fb_ref()->get_pixfmt();
+		return triple_int(0, 0, (int)AV_PIX_FMT_NONE);
 	}
 
 private:
@@ -578,4 +633,5 @@ private:
 	std::thread *_ts_reader_thread;
 	int _pipe[2];	
 	std::list<window *> _windows;
+
 };

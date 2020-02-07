@@ -9,6 +9,13 @@
 class local_playback :
 		public playback_inst
 {
+	enum  local_playback_state
+	{
+		local_playback_state_open = 0,
+		local_playback_state_pause,
+		local_playback_state_run,
+		local_playback_state_close
+	};
 	struct pixelframe_pts :
 			public pixelframe_presentationtime
 	{
@@ -264,7 +271,7 @@ class local_playback :
 		void operator = (streamer &&rhs) = delete;
 
 	private:
-		std::mutex _access;
+		std::mutex _access;/*access resume / puase*/
 	};
 
 
@@ -273,6 +280,7 @@ class local_playback :
 private:
 	mediacontainer _mediacontainer;
 	framescheduler _framescheduler;
+	enum  local_playback_state _state;
 
 	std::mutex _mediacontainerlock;
 	std::map<enum AVMediaType, pair_streamer> _streamers;
@@ -282,7 +290,8 @@ public:
 	local_playback(const avattr &attr, char const *name) :
 		playback_inst(attr),
 		_mediacontainer(name),
-		_framescheduler(attr)
+		_framescheduler(attr),
+		_state(local_playback_state_open)
 	{
 
 
@@ -318,7 +327,7 @@ public:
 				_streamers.insert(
 						std::make_pair((enum AVMediaType )i,
 								std::make_pair(new streamer(),
-										new std::mutex())));
+										new std::mutex())));/*framescheduler's data lock*/
 
 				_streamers[(enum AVMediaType )i].first->start(INFINITE, this, open_test[i].stream->codecpar);
 				_streamers[(enum AVMediaType )i].first->request_1frame();
@@ -332,6 +341,7 @@ public:
 	}
 	virtual ~local_playback()
 	{
+		resume();		
 		for(auto &it : _streamers)
 		{
 			delete it.second.first;
@@ -339,19 +349,38 @@ public:
 		}
 		_streamers.clear();
 	}
+	enum AVMediaType get_master_clock()
+	{
+		return _framescheduler.get_clock_master();
+	}
 	void pause()
 	{
-		for(auto &it : _streamers)
+		/*
+			we manage constructor has always 'pause'
+		*/
+		if(_state == local_playback_state_run || 
+			_state == local_playback_state_open)
 		{
-			it.second.first->lock();
-		}
+			_state =  local_playback_state_pause;
+			for(auto &it : _streamers)
+			{
+				it.second.first->lock();
+			}
+		
+		}		
 	}
-	void resume()
+	void resume(bool closing = false)
 	{
-		for(auto &it : _streamers)
+		if(_state == local_playback_state_pause)
 		{
-			it.second.first->unlock();
+			if(!closing)_state = local_playback_state_run;
+			else _state = local_playback_state_close;
+			for(auto &it : _streamers)
+			{
+				it.second.first->unlock();
+			}
 		}
+		
 	}
 	void seek(double incr)
 	{
@@ -364,15 +393,13 @@ public:
 	}
 	void play()
 	{
-
 		resume();
-
 	}
-        duration_div duration()
-        {
-            bool has = false;
-            return _mediacontainer.duration(has);
-        }
+    duration_div duration()
+    {
+        bool has = false;
+        return _mediacontainer.duration(has);
+    }
 	virtual int take(const std::string &title, pixel &output)
 	{
                 int res = -1;
@@ -389,22 +416,26 @@ public:
 
 
 		_targetstreamer->lock();
-                _targetstreamer->request_1frame();
-
-		_targetstream_lock->lock();
-		_framescheduler >> output;
-		_targetstream_lock->unlock();
+		if(_state == local_playback_state_run)
+		{
+			_targetstreamer->request_1frame();
+			_targetstream_lock->lock();
+			_framescheduler >> output;
+			_targetstream_lock->unlock();
+		}
+        
 		_targetstreamer->unlock();
-                res = output.can_take() ? 1 : 0;
-                if(res == 0)
-                {
-                    std::lock_guard<std::mutex> a(_mediacontainerlock);
-                    if(_mediacontainer.eof_stream(AVMEDIA_TYPE_VIDEO))
-                    {
-                        res = -1;
-                    }
-                }
-                return res;
+		
+        res = output.can_take() ? 1 : 0;
+        if(res == 0)
+        {
+            std::lock_guard<std::mutex> a(_mediacontainerlock);
+            if(_mediacontainer.eof_stream(AVMEDIA_TYPE_VIDEO))
+            {
+                res = -1;
+            }
+        }
+        return res;
 	}
 	virtual int take(const std::string &title, pcm_require &output)
 	{
@@ -418,30 +449,37 @@ public:
                         return res;
 		}
 
-
+		/*
+			access resume / pause 
+		*/
 		_targetstreamer->lock();
+		if(_state == local_playback_state_run)
+		{
 
-		_targetstreamer->request_1frame();
+			_targetstreamer->request_1frame();
 
-		_targetstream_lock->lock();
+			/*
+			 	access data
+			*/
+			_targetstream_lock->lock();
 
-		_framescheduler >> output;
+			_framescheduler >> output;
 
-		_targetstream_lock->unlock();
+			_targetstream_lock->unlock();
+		}
+        _targetstreamer->unlock();
 
-                _targetstreamer->unlock();
+        res = output.first.can_take() ? 1 : 0;
+        if(res == 0)
+        {
+            std::lock_guard<std::mutex> a(_mediacontainerlock);
+            if(_mediacontainer.eof_stream(AVMEDIA_TYPE_AUDIO))
+            {
+                    res = -1;
+            }
+        }
 
-                res = output.first.can_take() ? 1 : 0;
-                if(res == 0)
-                {
-                        std::lock_guard<std::mutex> a(_mediacontainerlock);
-                        if(_mediacontainer.eof_stream(AVMEDIA_TYPE_AUDIO))
-                        {
-                                res = -1;
-                        }
-                }
-
-                return res;
+        return res;
 	}
 private:
 	bool take(streamer *&_targetstreamer,

@@ -670,7 +670,7 @@ public:
 	{
 
 	}
-	virtual void resume()
+	virtual void resume(bool closing)
 	{
 
 	}

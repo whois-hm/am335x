@@ -61,10 +61,21 @@ virtual	void update_label(ui_handle parent_win,
 		ui_handle label_name,
 		char const *text,
 		ui_color &&color){}
-virtual enum AVPixelFormat diplay_format(ui_handle  win)
+virtual void write_user(struct pe_user &&user)
+{
+
+}
+virtual void write_user(struct pe_user &user)
+{
+
+}
+
+
+virtual triple_int display_available()
+
 		{
 			/*return normally use format */
-			return AV_PIX_FMT_RGB24;
+			return triple_int(320, 240, (in)AV_PIX_FMT_RGB24)
 		}
 virtual	bool install_event_filter(ui_event_filter &&filter)
 		{

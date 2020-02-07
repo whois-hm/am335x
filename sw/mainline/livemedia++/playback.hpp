@@ -58,14 +58,15 @@ public:
 	{ if(_inst)delete _inst;_inst = nullptr;}
 	void pause()
 	{_inst->pause();}
-	void resume()
-	{_inst->resume();}
+	void resume(bool closing = false)
+	{_inst->resume(closing);}
 	void seek(double incr)
 	{_inst->seek(incr);}
 	bool has(avattr::avattr_type_string &&key)
 	{return _inst->has(static_cast<avattr::avattr_type_string &&>(key));}
 	void play(){_inst->play();}
-        duration_div duration(){return _inst->duration();}
+	enum AVMediaType get_master_clock(){return _inst->get_master_clock();}
+    duration_div duration(){return _inst->duration();}
 
 	/*
 	 	 	 if 0 > 1 take frame
