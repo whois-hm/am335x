@@ -1,13 +1,12 @@
 #include "core.hpp"
 #include "context.hpp"
-#include "client_manager.hpp"
-#include "cpu_manager.hpp"
 
 
-static avfor_context  *_avc = nullptr;
-static ui *_int = nullptr;
-static client_manager *_cmanager = nullptr;
-static cpu_manager *_cpumanager = nullptr;
+
+avfor_context  *_avc = nullptr;
+ui *_int = nullptr;
+client_manager *_cmanager = nullptr;
+cpu_manager *_cpumanager = nullptr;
 
 
 
@@ -76,12 +75,17 @@ void handler_user(ui_event &e)
 	if(e.user()->_code == custom_code_read_pixel)
 	{
 		pixel *pix = (pixel *)(e.user()->_ptr);
-		double pts = pix->getpts();
 		_int->update_pannel("mainwindow","display area",pix, true);
-		if(_cmanager)
+	}
+	if(e.user()->_code == custo_code_presentation_tme)
+	{
+		double *v = (double *)(e.user()->_ptr);
+		
+		if(v)
 		{
-			if(_cmanager->master_clock() == AVMEDIA_TYPE_VIDEO)
-			{				
+			double pts = *v;
+			if(_cmanager)
+			{
 			    int h, m,s;
 			    unsigned ms_total = pts * 1000;
 			    s = ms_total / 1000;
@@ -91,17 +95,25 @@ void handler_user(ui_event &e)
 			    m = m % 60;
 				char buf[256] = {0, };
 				sprintf(buf, "pts:%02d.%02d.%02d", h, m, s);
-				_int->update_label("mainwindow","time lable pts",buf,ui_color(255,255,0));
-
+				_int->update_label("mainwindow","time lable pts",buf,ui_color(255,255,0));				
 			}
+			free(v);
 		}
 	}
 	if(e.user()->_code == custom_code_ready_to_play)
 	{
-		_int->update_label("mainwindow","title","play:ready to play",ui_color(255,255,255));
-		_int->update_label("mainwindow","time lable duration",(char *)e.user()->_ptr,ui_color(0,255,255));				
-		free(e.user()->_ptr);
-		printf("ready to play\n");
+		duration_div *v = (duration_div *)(e.user()->_ptr);
+		if(v)
+		{
+			int h = std::get<0>(*v);
+			int m = std::get<1>(*v);
+			int s = std::get<2>(*v);
+			char buf[256] = {0, };
+			sprintf(buf, "duration:%02d.%02d.%02d", h, m, s);
+			_int->update_label("mainwindow","title","play:ready to play",ui_color(255,255,255));
+			_int->update_label("mainwindow","time lable duration",buf,ui_color(0,255,255));				
+			delete v;
+		}			
 	}
 	if(e.user()->_code == custom_code_cpu_usage_notify)
 	{
@@ -151,7 +163,7 @@ void ready_avfor(int argc, char *argv[])
 	display_fmt = _int->display_available();
 	if(std::get<0>(display_fmt) > 0 &&
 		std::get<1>(display_fmt) > 0 &&
-		std::get<2>(display_fmt) > 0)
+		std::get<2>(display_fmt) >= 0)
 	{
 		/*
 			draw enable always, if possible use platform display 
@@ -170,9 +182,10 @@ void ready_avfor(int argc, char *argv[])
 		int cpu_vheight = vheight;
 
 		enum AVPixelFormat vfmt = (enum AVPixelFormat)_avc->_attr.get_int(pfx_avfor_video_format_type,(int)AV_PIX_FMT_RGB565);
+		
 
-		if(vwidth + cpu_vwidth > std::get<0>(display_fmt) || 
-				vheight + (time_min_h * 5) + title_min_h  + btn_min_h> std::get<1>(display_fmt) || 
+		if(vwidth + cpu_vwidth > std::min(_avc->_attr.get_int(pfx_avfor_frame_width), std::get<0>(display_fmt))|| 
+				vheight + (time_min_h * 5) + title_min_h  + btn_min_h> std::min(_avc->_attr.get_int(pfx_avfor_frame_height), std::get<1>(display_fmt)) || 
 				vfmt != std::get<2>(display_fmt))
 		{
 			printf("make platform display fail (invalid setup value)\n");
@@ -180,29 +193,31 @@ void ready_avfor(int argc, char *argv[])
 		else
 		{
 			title_min_h = 30;
-			time_min_h 	= (std::get<1>(display_fmt) - title_min_h - (vheight) - btn_min_h) / 5;/*pts / duration / cpu / syscpu/usrcpu*/
-			btn_min_h 	= (std::get<1>(display_fmt) - title_min_h  - vheight - (time_min_h * 5));
+			time_min_h 	= (std::min(_avc->_attr.get_int(pfx_avfor_frame_height), std::get<1>(display_fmt)) - title_min_h - (vheight) - (btn_min_h)) / 5;/*pts / duration / cpu / syscpu/usrcpu*/
+			btn_min_h 	= std::min(_avc->_attr.get_int(pfx_avfor_frame_height), std::get<1>(display_fmt)) - title_min_h  - vheight - (time_min_h * 5);
 			cpu_vheight = vheight;
 			cpu_usage_min_h = time_min_h;
 
-			title_min_w = std::get<0>(display_fmt);
-			btn_min_w = std::get<0>(display_fmt) / 5;/*left play right cpu close*/
+			title_min_w = std::min(_avc->_attr.get_int(pfx_avfor_frame_width), std::get<0>(display_fmt));
+			btn_min_w = std::min(_avc->_attr.get_int(pfx_avfor_frame_width), std::get<0>(display_fmt)) / 5;/*left play right cpu close*/
 			time_min_w = vwidth;
-			cpu_usage_min_w = std::get<0>(display_fmt) - vwidth; 
-			cpu_vwidth = std::get<0>(display_fmt) - vwidth; 
+			cpu_usage_min_w = std::min(_avc->_attr.get_int(pfx_avfor_frame_width), std::get<0>(display_fmt)) - vwidth; 
+			cpu_vwidth = std::min(_avc->_attr.get_int(pfx_avfor_frame_width), std::get<0>(display_fmt)) - vwidth; 
 
+			
 
 			_int->make_window("mainwindow",ui_rect(0, 
 				0, 
-				std::get<0>(display_fmt), 
-				std::get<1>(display_fmt)));
+				320, 
+				240));
+			
 			/*draw top*/
 			_int->make_label("mainwindow",
 				"title",
 				"play:pause",
 				ui_color(255,255,255),
 				ui_rect(0, 0, title_min_w, title_min_h));
-			
+						
 			/*draw center*/
 			_int->make_pannel("mainwindow",
 				"display area",
@@ -223,6 +238,7 @@ void ready_avfor(int argc, char *argv[])
 				"duration:00.00.00",
 				ui_color(0,255,255),
 				ui_rect(0, vheight + time_min_h + title_min_h, time_min_w, time_min_h));
+
 
 			_int->make_label("mainwindow",
 				"cpu cpu",
@@ -284,11 +300,11 @@ void ready_avfor(int argc, char *argv[])
 int loop_avfor()
 {
 	int res = -1;
-	_cpumanager = new cpu_manager(_avc, _int);
+	_cpumanager = new cpu_manager();
 	/* on the client */
 	if(_avc->_attr.get_str(pfx_avfor_runtype) == "client")
 	{
-		_cmanager = new client_manager (_avc, _int);
+		_cmanager = new client_manager ();
 		if(_cmanager->can())
 		{
 			_cmanager->ready_to_play();				
@@ -313,11 +329,11 @@ void clean_avfor()
 int main(int argc, char *argv[])
 {
 	int res = -1;
-	printf("welcome avfor main\n");
+//	printf("welcome avfor main\n");
 	ready_avfor(argc, argv);
 	res = loop_avfor();
 	clean_avfor();
-	printf("bye avfor\n");
+	//printf("bye avfor\n");
 	return res;
 };
 

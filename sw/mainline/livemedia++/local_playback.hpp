@@ -1,5 +1,6 @@
 #pragma once
 
+
 /*
  	 playback local file
 
@@ -36,8 +37,9 @@ class local_playback :
                         _pts = av_frame_get_best_effort_timestamp(raw());
                         if(_pts != AV_NOPTS_VALUE)
                         {
-
+							double  pts = _pts;
                             _pts = av_q2d(_rational) * _pts;
+//							 printf("pixel %f %f\n", pts, _pts);
                         }
                     }
 //			if(raw()->best_effort_timestamp != AV_NOPTS_VALUE)
@@ -52,6 +54,7 @@ class local_playback :
 			public pcmframe_presentationtime
 	{
 		AVRational _rational;
+		unsigned a;
 		pcmframe_pts(const pcmframe &f,
 				const AVRational &rational) :
 			pcmframe_presentationtime(f),
@@ -63,8 +66,19 @@ class local_playback :
 		}
 		void operator()()
 		{
+					double test_val = 0.0;
+			if(raw()->pkt_dts != AV_NOPTS_VALUE)
+			{
+
+				test_val = av_q2d(_rational) * raw()->pkt_pts;
+//				 printf("pcm %f %f %d\n",  test_val, av_q2d(_rational), raw()->pkt_pts, a);
+			}
+			_pts =  test_val;
+			return;
+				
 			_pts = guesspts();
 		}
+
 		double guesspts()
 		{
 			/*
@@ -73,7 +87,9 @@ class local_playback :
 			double test_val = 0.0;
 			if(raw()->pkt_dts != AV_NOPTS_VALUE)
 			{
+
 				test_val = av_q2d(_rational) * raw()->pkt_pts;
+			//	 printf("pcm guess %f %f %d\n",  test_val, av_q2d(_rational), raw()->pkt_pts, a);
 			}
 			return test_val;
 		}
@@ -105,8 +121,9 @@ class local_playback :
 		{ _audiorational = rational; }
 		virtual void usingframe( pixelframe_pts &rf)
                 { rf(); }
+		
 		virtual void usingframe( pcmframe_pts &rf)
-                { rf(); }
+                { rf();}
 	};
 
 
@@ -158,14 +175,20 @@ class local_playback :
 				/*
 				 	 	 make frame
 				 */
+
+
 				pcmframe_pts _pcmframe(*frm.raw(),
 						((local_playback *)puser)->_framescheduler._audiorational);
 
 				/*
 				 	 	 convert if different
 				 */
+
+
+
 				swxcontext_class (dynamic_cast<pcmframe &>(_pcmframe),
 						((local_playback *)puser)->_attr);
+				 
 				/*
 				 	 put frame
 				 */
@@ -174,7 +197,9 @@ class local_playback :
 
 			}
 		};
-		enum functor_event { functor_event_reqeust_frame, functor_event_close };
+		enum functor_event { functor_event_reqeust_frame, 
+			functor_event_waitdump, /*for confirm stream queue return time*/
+			functor_event_close };
 		union fucntor_par { enum functor_event e; };
 
 		stream() :
@@ -191,6 +216,12 @@ class local_playback :
 				return false;
 			}
 			union fucntor_par *_par =  (union fucntor_par *)par;
+			if(_par->e == functor_event_waitdump)
+			{
+				/*confirm queue return time*/
+				return true;
+				
+			}
 			if(_par->e == functor_event_reqeust_frame)
 			{
 				bool makeframe = false;
@@ -266,6 +297,12 @@ class local_playback :
 			stream::fucntor_par par;
 			par.e = stream::functor_event_reqeust_frame;
 			sendto(&par, sizeof(stream::fucntor_par));
+		}
+		void wait_dump()
+		{
+			stream::fucntor_par par;
+			par.e = stream::functor_event_waitdump;
+			sendto_wait(&par, sizeof(stream::fucntor_par));
 		}
 
 		void operator = (streamer &&rhs) = delete;
@@ -384,7 +421,20 @@ public:
 	}
 	void seek(double incr)
 	{
-
+		double master_pts;
+		enum AVMediaType master_type;
+		/*first user 'take' blockking  */
+		pause();
+		/*second wait for finish streamers queue's piled all event*/
+		for(auto &it : _streamers)
+		{
+			it.second.first->wait_dump();
+		}
+		/*last seeking */
+		std::lock_guard<std::mutex> a(_mediacontainerlock);
+		/*not access 'this->get_master_clock()' because master pts value has not visible*/
+		master_type	= _framescheduler.get_clock_master(&master_pts);
+		_mediacontainer.seek(master_type,incr, master_pts);
 	}
 
 	bool has(avattr::avattr_type_string &&key)

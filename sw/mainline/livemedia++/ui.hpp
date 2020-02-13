@@ -4,6 +4,7 @@
 */
 enum platform{
 platform_on_embedded, 	/*raw level control platform */
+platform_on_sdl,		/*sdl lib support*/
 platform_on_fake		/*usefull for no detect platform, because external code is maintain*/
 };
 
@@ -36,6 +37,7 @@ struct pe_error
 	/*
 		any platform can't running notify 
 		code : -10 -> pipe, or any file description has broken
+		code : -11 -> unknown or no support
 	*/
 	int error_code;
 };
@@ -69,6 +71,8 @@ class ui_event
 {
 public:
 	ui_event(struct platform_par parameter) : 
+		_par(parameter){}
+	ui_event(struct platform_par &&parameter):
 		_par(parameter){}
 	virtual ~ui_event(){}
 	/*get associated widget*/
@@ -107,11 +111,19 @@ public:
 	platform_par _par;
 };
 typedef std::function<void (ui_event &)> ui_event_filter;
+typedef std::function<void (
+	unsigned char *, /*pcm*/
+	int)/*pcm length*/
+	> audio_read;
 
 class ui
 {
 
-
+/*
+	warnning note : 
+	use for video apis : 'update*'api use in same 'make*'api thread
+	use for audio api : we offer exclusive thread for speed
+*/
 protected:
 	enum platform _platform;
 	bool _bloop_flag;
@@ -161,6 +173,14 @@ virtual void write_user(struct pe_user &user) = 0;
 			register if you want receiving internal notify event 
 		*/
 virtual	bool install_event_filter(ui_event_filter &&filter) = 0;
+virtual bool install_audio_thread(audio_read &&reader,
+	int channel, 
+	int samplingrate, 
+	int samplesize, 
+	enum AVSampleFormat fmt) = 0;		
+virtual void uninstall_audio_thread() = 0;
+virtual void run_audio_thread() = 0;
+virtual void stop_audio_thread() = 0;
 		/*
 			starting platform
 		*/
@@ -180,6 +200,9 @@ virtual	bool install_event_filter(ui_event_filter &&filter) = 0;
 #if defined (platform_embedded)
 #include "ui_platform_embedded.hpp"
 typedef ui_platform_embedded ui_platform;
+#elif defined (platform_sdl)
+#include "ui_platform_sdl.hpp"
+typedef ui_platform_sdl ui_platform;
 #else 
 #include "ui_platform_fake.hpp"
 typedef ui_platform_fake ui_platform;

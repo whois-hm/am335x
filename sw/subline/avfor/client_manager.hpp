@@ -7,18 +7,15 @@ class client_manager
 {
 private:
 	std::thread *_vreader;
-	std::thread *_areader;
 	playback *_play;
 	bool _bpause;
 	bool _bstop;
-	avfor_context *_ctx;
-	ui * _ui;
 	void notify_to_main(int code, void *ptr)
 	{
 		struct pe_user u;
 		u._code = code;
 		u._ptr = ptr;
-		_ui->write_user(u);
+		_int->write_user(u);
 	}
 	void read_video()
 	{
@@ -40,38 +37,44 @@ private:
 			if(pix.can_take())
 			{
 				notify_to_main(custom_code_read_pixel, (void *)pix.clone());
+				if(_play->get_master_clock() == AVMEDIA_TYPE_VIDEO)
+				{
+					double pts = pix.getpts();
+					double *ptr = (double *)malloc(sizeof(double));
+					*ptr = pts;
+					notify_to_main(custo_code_presentation_tme, (void *)ptr);
+				}
+
 
 			}
 		}	
 	}
-	void read_audio()
-	{
-	}
+
 public:
-	client_manager(avfor_context *ctx,
-		ui * ui) : 
+	client_manager() : 
 		_vreader(nullptr),
-			_areader(nullptr),
 			_play(nullptr),
 			_bpause(true),
-			_bstop(false),
-			_ctx(ctx),
-			_ui(ui)
+			_bstop(false)
 	{
 		avattr attr;
-		if(_ctx->has_video_output_context())
+		if(_avc->has_video_output_context())
 		{
 			attr.set(avattr_key::frame_video, "frame_video", 0, 0.0);						
-			attr.set(avattr_key::width, "width", _ctx->_attr.get_int(pfx_avfor_video_width,320), 0.0);
-			attr.set(avattr_key::height, "height", _ctx->_attr.get_int(pfx_avfor_video_height,240), 0.0);
-			attr.set(avattr_key::pixel_format,"pix fmt", (int)_ctx->_attr.get_int(pfx_avfor_video_format_type,(int)AV_PIX_FMT_RGB565),0.0);			
+			attr.set(avattr_key::width, "width", _avc->_attr.get_int(pfx_avfor_video_width,320), 0.0);
+			attr.set(avattr_key::height, "height", _avc->_attr.get_int(pfx_avfor_video_height,240), 0.0);
+			attr.set(avattr_key::pixel_format,"pix fmt", (int)_avc->_attr.get_int(pfx_avfor_video_format_type,(int)AV_PIX_FMT_RGB565),0.0);			
 		}
-		if(_ctx->has_audio_output_context())
+		if(_avc->has_audio_output_context())
 		{
+			attr.set(avattr_key::frame_audio, "frame_audio", 0, 0.0);						
+			attr.set(avattr_key::channel, "channel", _avc->_attr.get_int(pfx_avfor_audio_channel,1), 0.0);
+			attr.set(avattr_key::samplerate, "samplerate", _avc->_attr.get_int(pfx_avfor_audio_samplingrate,48000), 0.0);
+			attr.set(avattr_key::pcm_format, "pcm fmt", _avc->_attr.get_int(pfx_avfor_audio_format,(int)AV_SAMPLE_FMT_S16), 0.0);
 		}
 		if(attr.has_frame_any())
 		{
-			_play = new playback(attr, _ctx->_attr.get_str(pfx_avfor_playlist).c_str());
+			_play = new playback(attr, _avc->_attr.get_str(pfx_avfor_playlist).c_str());
 		}
 		if(_play->has( avattr_key::frame_video))
 		{	
@@ -79,21 +82,49 @@ public:
 		}	
 		if(_play->has( avattr_key::frame_audio))
 		{
-			_areader = new std::thread([&]()->void {read_audio();});
+			_int->install_audio_thread(
+				[&](unsigned char *pdata,int ndata)->void
+				{											
+						memset(pdata, 0, ndata);
+						if(!_bstop)
+						{
+							pcm_require require;
+							require.second = ndata;
+							int res = _play->take(require);
+							if(require.first.can_take())
+							{					
+
+								memcpy(pdata, require.first.read(), require.first.size());
+								if(_play->get_master_clock() == AVMEDIA_TYPE_AUDIO)
+								{
+									double pts = require.first.getpts();
+									double *ptr = (double *)malloc(sizeof(double));
+									*ptr = pts;
+
+									notify_to_main(custo_code_presentation_tme, (void *)ptr);
+								}
+							}
+						}
+						
+				},
+				attr.get_int(avattr_key::channel,1),
+				attr.get_int(avattr_key::samplerate,48000),
+				1024,
+				(enum AVSampleFormat)attr.get_int(avattr_key::pcm_format,(int)AV_SAMPLE_FMT_S16));
+				_int->run_audio_thread();
+
 		}		
 	}
 	
 	~client_manager()
 	{
 		_bstop = true;
-		if(_play)_play->resume(true);
-		if(_areader)
+		if(_play)
 		{
-			_areader->join();
-			delete  _areader;
-			_areader = nullptr;
+			_play->resume(true);/*return running a/v thread*/			
 		}
-		if(_vreader)
+		_int->uninstall_audio_thread();/*audio thread close*/
+		if(_vreader)/*video thread close*/
 		{
 			_vreader->join();
 			delete  _vreader;
@@ -107,7 +138,7 @@ public:
 	}
 	bool can()
 	{
-		return _play && (_vreader || _areader);
+		return _play;
 	}
 	void ready_to_play()
 	{
@@ -115,15 +146,8 @@ public:
 		if(can())
 		{
 
-			duration_div d= _play->duration();
-			int h = std::get<0>(d);
-			int m = std::get<1>(d);
-			int s = std::get<2>(d);
-			char buf[256] = {0, };
-			sprintf(buf, "duration:%02d.%02d.%02d", h, m, s);
-			char *p = (char *)malloc(strlen(buf));		
-			memcpy(p, buf, strlen(buf));
-			notify_to_main(custom_code_ready_to_play, p);
+			duration_div *d= new duration_div(_play->duration());
+			notify_to_main(custom_code_ready_to_play, (void *)d);
 		}
 	}
 

@@ -9,11 +9,21 @@
 #define pfx_avfor_playlist 				"avfor_playlist"
 #define pfx_avfor_video_format 			"avfor_video_format"	
 #define pfx_avfor_video_format_type 	"avfor_video_format_type"	
+#define pfx_avfor_frame_width			"avfor_frame_width"
+#define pfx_avfor_frame_height			"avfor_frame_height"
+
+#define pfx_avfor_audio_channel			"avfor_audio_channel"
+#define pfx_avfor_audio_samplingrate	"avfor_audio_samplingrate"
+#define pfx_avfor_audio_format			"avfor_audio_format"
+
+
+
 
 #define custom_code_end_video		0
 #define custom_code_read_pixel		1
 #define custom_code_ready_to_play	2
 #define custom_code_cpu_usage_notify	3
+#define custo_code_presentation_tme		4
 
 class avfor_context
 {
@@ -26,9 +36,17 @@ public:
 		printf("-l : input streaming contents for type client\n");
 		printf("-r : resolution for display if you need\n");
 		printf("-v : video format for display if you need\n");
+		printf("-w : ui frame width\n");
+		printf("-h : ui frame height\n");
+		printf("-c : number of audio channel\n");
+		printf("-s : sampling rate of audio\n");
+		printf("-a : format of audio\n");
 		printf("-----------------------------------\n");
 		printf("---------video format support------\n");
 		printf("format : rgb16 (rgb565)\n");
+		printf("format : yuv420p (yv12)\n");
+		printf("---------audio format support------\n");
+		printf("format : s16\n");
 		printf("---------video vga support------\n");
 		printf("vga : %d %d %s %s\n", 160, 	120, 	"qqVGA", 	"quarter quarter VGA");
 		printf("vga : %d %d %s %s\n", 240, 	160, 	"HqVGA", 	"Half quarter VGA");
@@ -54,12 +72,17 @@ public:
 	void parse_par(int argc, char *argv[])
 	{
 		int opt;
-		while(-1 != (opt = getopt(argc, argv, "t:l:r:v:")))
+		while(-1 != (opt = getopt(argc, argv, "t:l:r:v:w:h:c:s:a:")))
 		{
 			if(opt == 't') set_runtype(optarg);
 			else if(opt == 'l') set_playing_list(optarg);
 			else if(opt == 'r') set_vga(optarg);
 			else if(opt == 'v') set_vformat(optarg);
+			else if(opt == 'w') set_frame_width(optarg);
+			else if(opt == 'h') set_frame_height(optarg);
+			else if(opt == 'c') set_audio_channel(optarg);
+			else if(opt == 's') set_audio_samplingrate(optarg);
+			else if(opt == 'a') set_aformat(optarg);
 			else {print_help("invalid format"); exit(0);}
 		}
 		if(!has_vaild_context())
@@ -90,6 +113,51 @@ public:
 			}
 		}
 	}
+	 void set_audio_channel(const char *optarg)
+	 {
+	 _attr.set(pfx_avfor_audio_channel, optarg, atoi(optarg), 0.0);
+	 }
+	 void set_audio_samplingrate(const char *optarg)
+	 {
+	 _attr.set(pfx_avfor_audio_samplingrate, optarg, atoi(optarg), 0.0);
+	 }
+	void set_aformat(const char *optarg)
+	{
+			/*we can select audio format*/
+		struct audio_format
+		{
+			char const *c_format;
+			enum AVSampleFormat fmt;
+		}audio_fmt_format[] = 
+		{
+			{"s16", AV_SAMPLE_FMT_S16}
+		};
+		if(optarg)
+		{
+			for(int i = 0; i < DIM(audio_fmt_format); i++)
+			{
+				if(!strcmp(optarg, audio_fmt_format[i].c_format))
+				{
+					_attr.set(pfx_avfor_audio_format,audio_fmt_format[i].c_format, (int)audio_fmt_format[i].fmt, 0.0); 
+					break;
+				}
+			}
+		}
+		
+	}
+			 
+
+			
+
+
+	void set_frame_width(char const *c_val)
+	{
+		_attr.set(pfx_avfor_frame_width, c_val, atoi(c_val), 0.0);
+	}
+	void set_frame_height(char const *c_val)
+	{
+		_attr.set(pfx_avfor_frame_height, c_val, atoi(c_val), 0.0);
+	}	
 	void set_vga(char const *c_vga)
 	{
 		/*we can control video size 'vga'*/
@@ -137,7 +205,8 @@ public:
 			enum AVPixelFormat fmt;
 		}video_fmt_format[] = 
 		{
-			{"rgb16", AV_PIX_FMT_RGB565}
+			{"rgb16", AV_PIX_FMT_RGB565},	/*may be raw control*/
+				{"yuv420p", AV_PIX_FMT_YUV420P},	/*may be SDL link*/
 		};
 		if(c_format)
 		{
@@ -158,20 +227,37 @@ public:
 			!_attr.notfound(pfx_avfor_video_height) &&	/*for output video height*/
 			!_attr.notfound(pfx_avfor_video_vga)&& 		/*for output vga from width-height*/
 			!_attr.notfound(pfx_avfor_video_description) &&/*for output vga description*/
-			!_attr.notfound(pfx_avfor_playlist) &&		/*for output play list*/	
 			!_attr.notfound(pfx_avfor_video_format) &&	/*for output video format*/
 			!_attr.notfound(pfx_avfor_video_format_type))/*for output video format*/
 		{
 			return true;
 		}
+		return false;
+	}
+	bool has_client_play_list()
+	{
+		if(!_attr.notfound(pfx_avfor_playlist))
+		{
+			return true;
+		}			
+		return false;
 	}
 	bool has_audio_output_context()
 	{
+		if(!_attr.notfound(pfx_avfor_audio_channel) &&
+			!_attr.notfound(pfx_avfor_audio_samplingrate) &&
+			!_attr.notfound(pfx_avfor_audio_format))
+		{
+			return true;
+		}
+				
 		return false;
 	}
 	bool has_vaild_context()
 	{
-		if(_attr.notfound(pfx_avfor_runtype))
+		if(_attr.notfound(pfx_avfor_runtype) || 
+			_attr.notfound(pfx_avfor_frame_width)||
+			_attr.notfound(pfx_avfor_frame_height))
 		{
 			/*can't fine running type*/
 			return false;
@@ -179,10 +265,14 @@ public:
 		/*
 			current support client only
 		*/
+		
 		if(_attr.get_str(pfx_avfor_runtype) == "client")
 		{	
-			if(has_video_output_context() || 
-				has_audio_output_context())
+			if(has_client_play_list() &&
+				(	has_video_output_context() || 
+					has_audio_output_context()
+				)
+			  )
 			{
 				return true;
 			}
@@ -191,5 +281,16 @@ public:
 	}
 	avattr _attr;
 };
+
+extern avfor_context  *_avc;
+extern ui *_int;
+
+#include "client_manager.hpp"
+#include "cpu_manager.hpp"
+
+
+
+extern client_manager *_cmanager;
+extern cpu_manager *_cpumanager;
 
 

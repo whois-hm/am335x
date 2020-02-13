@@ -84,6 +84,7 @@ public:
 		audio_remain_size = _pcmframe.first._max -_pcmframe.first._index;
 		if(audio_remain_size >= pcm_length)
 		{
+			//printf("pcm(%d) used in array remain = %d length = %d\n", urf.print(), audio_remain_size, pcm_length);
 			urf.data_copy(_pcmframe.first._buffer + _pcmframe.first._index, pcm_length);
 			_pcmframe.first._index += pcm_length;
 			usedframe(urf, pcm_length);
@@ -92,6 +93,7 @@ public:
 		/*
 		 	 array was full
 		 */
+		// printf("pcm(%d) insert in list remain = %d length = %d\n", urf.print(), audio_remain_size, pcm_length);
 		_pcmframe.second.push_back(rf);
 		usingframe(_pcmframe.second.back());
 	}
@@ -141,7 +143,9 @@ public:
 		/*
 		 	 	 realign remian data
 		 */
+		
 		_pcmframe.first._index -= return_size;
+	//	 printf("user pcm get %d size remain = %d\n", return_size, _pcmframe.first._max -_pcmframe.first._index);
 		if(_pcmframe.first._index > 0)
 		{
 			memcpy(_pcmframe.first._buffer, _pcmframe.first._buffer + return_size, _pcmframe.first._index);
@@ -151,6 +155,7 @@ public:
 			int length = _pcmframe.second.front().len();
 			if((length<= (_pcmframe.first._max -_pcmframe.first._index)))
 			{
+//				printf("pcm(%d) move to array in list remain = %d length = %d\n", _pcmframe.second.front().print(), _pcmframe.first._max -_pcmframe.first._index, length);
 				_pcmframe.second.front().data_copy(_pcmframe.first._buffer + _pcmframe.first._index, length);
 				_pcmframe.first._index += length;
 				usedframe(_pcmframe.second.front(), length);
@@ -225,7 +230,7 @@ private:
     double _audiodiff_cum;
     double _audiodiff_avgcoef;
 
-	double master_clock()
+	double master_clock_pts()
 	{
 		if(_masterclock == AVMEDIA_TYPE_VIDEO)
 		{
@@ -270,7 +275,7 @@ private:
 		/*
 		 	 	 master clock syncronize
 		 */
-		masters_clock = master_clock();
+		masters_clock = master_clock_pts();
 		diff_pts = _video[_video_type::current_presentation_time] - masters_clock;
 
 		/*
@@ -307,6 +312,7 @@ private:
 	}
 	virtual void usedframe( _type_pcmframe &rf, int size_from_array = 0)
 	{
+
 		_audio_last_pts = rf.guesspts() /*input pts */ +
 				(size_from_array)/*input frame size */ /
 				(double)_audio_bps;
@@ -348,8 +354,13 @@ public:
 	{
 		_masterclock = masterclock;
 	}
-	enum AVMediaType get_clock_master()
+	enum AVMediaType get_clock_master(double *presentation_time = nullptr)
 	{
+		if(presentation_time)
+		{
+			/*master's clock pts*/
+			*presentation_time =	master_clock_pts();
+		}
 		return  _masterclock;
 	}
 
@@ -387,7 +398,7 @@ public:
                         pf.first.setpts(audio_current_clock);
 
 
-			diff = audio_current_clock - master_clock();
+			diff = audio_current_clock - master_clock_pts();
 			if(diff >= AV_NOSYNC_THRESHOLD)
 			{
 				/* difference is TOO big; reset diff stuff */

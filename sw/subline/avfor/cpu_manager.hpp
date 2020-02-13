@@ -45,8 +45,6 @@ class cpu_usage
 		cpu_jiffytype_max
 	};
 	
-	avfor_context *_ctx;
-	ui * _ui;
 	unsigned _interval;
 	enum command _state;
 
@@ -61,7 +59,7 @@ class cpu_usage
 		struct pe_user u;
 		u._code = custom_code_cpu_usage_notify;
 		u._ptr = (void *)new cpu_manager_par(cpu, sys, usr, idle);
-		_ui->write_user(u);
+		_int->write_user(u);
 		
 	}
 	void update_usage()
@@ -115,11 +113,7 @@ class cpu_usage
 	}
 	
 public:
-	cpu_usage() {}
-	cpu_usage(avfor_context *ctx,
-	ui * ui) : 
-	_ctx(ctx), 
-	_ui(ui), 
+	cpu_usage() :  
 	_interval(0),
 	_state(stop)
 	{
@@ -176,11 +170,10 @@ class cpu_manager :
 
 public:
 
-	cpu_manager(avfor_context *ctx,
-	ui * ui_int) : 
+	cpu_manager() : 
 	wthread(10, sizeof(cpu_usage:: par))
 	{
-		start(INFINITE, ctx, ui_int);
+		start(INFINITE);
 	}
 	~cpu_manager()
 	{

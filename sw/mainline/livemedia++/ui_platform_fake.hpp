@@ -81,6 +81,23 @@ virtual	bool install_event_filter(ui_event_filter &&filter)
 		{
 			return true;
 		}
+virtual bool install_audio_thread(audio_read &&reader,
+	int channel, 
+	int samplingrate, 
+	int samplesize, 
+	enum AVSampleFormat fmt)
+{
+	return false;
+}
+
+virtual void uninstall_audio_thread(){}
+virtual void run_audio_thread()
+{
+}
+virtual void stop_audio_thread()
+{
+}
+
 virtual	int exec()
 		{
 			if(SEMA_open(&_sem, 0, 1) < 0)

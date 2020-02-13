@@ -3,8 +3,8 @@ SRCS		=$(wildcard *.c)
 OBJS		=$(SRCS:.c=.o)
 
 $(LIB_WQ_NAME) : $(OBJS)
-	$(AR) rcv $@ $(OBJS)
-	$(RANLIB) $@
+	$(AR) rscv $(LIB_WQ_NAME) $(OBJS)
+	ranlib $(LIB_WQ_NAME)
 
 
 clean:
