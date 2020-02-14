@@ -257,10 +257,11 @@ private:
 		/*
 		 	 	 get delay from current frame - last frame
 		 */
-		_video[_video_type::last_presentation_time] = _video[_video_type::current_presentation_time];
+
 		_video[_video_type::current_presentation_time] = rf.getpts();
 		_video[_video_type::global_timer] = (double)av_gettime();
 		delay = _video[_video_type::current_presentation_time] - _video[_video_type::last_presentation_time];
+
 
 		/*
 		 	 	 min delay => 0 sec && delay <= 1 sec
@@ -270,6 +271,7 @@ private:
 
 			delay = _video[_video_type::last_delay_time];
 		}
+		_video[_video_type::last_presentation_time] = _video[_video_type::current_presentation_time];
 		_video[_video_type::last_delay_time] = delay;
 
 		/*
@@ -306,9 +308,11 @@ private:
 			act_delay = 0.010;
 		}
 
-
-		std::this_thread::sleep_for
-		(std::chrono::milliseconds((uint64_t)(act_delay * 1000 + 0.5)));
+		//printf("%f\n", _video[_video_type::current_presentation_time]);
+//		std::this_thread::sleep_for
+//		(std::chrono::milliseconds((uint64_t)(act_delay * 1000 + 0.5)));
+		//printf(" sleep = %f %d ms\n", act_delay, (unsigned )((act_delay * 1000 + 0.5)));
+		usleep((act_delay * 1000 + 0.5) * 1000);
 	}
 	virtual void usedframe( _type_pcmframe &rf, int size_from_array = 0)
 	{

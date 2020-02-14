@@ -503,10 +503,14 @@ virtual void update_label(ui_handle parent_win,
 		h);
 	}
 virtual bool install_event_filter(ui_event_filter &&filter)
-	{
-		_filter = filter;
+{
+	return install_event_filter(filter);
+}
+virtual	bool install_event_filter(const ui_event_filter &filter)
+{
+	_filter = filter;
 		return true;
-	}
+}
 virtual bool install_audio_thread(audio_read &&reader,
 	int channel, 
 	int samplingrate, 

@@ -392,9 +392,11 @@ public :
 		{
 			SDL_Init(SDL_INIT_EVERYTHING);
 			TTF_Init();
+			printf("11aaa %s\n", sdl_ttf_fontpath);
 			_font = TTF_OpenFont(sdl_ttf_fontpath, 15);
 			TTF_SetFontKerning(_font, 1);
 			_reg_eventid = SDL_RegisterEvents(1);
+			printf("11bbb\n");
 		}
 	virtual ~ui_platform_sdl()
 		{
@@ -526,7 +528,8 @@ virtual void write_user(struct pe_user &&user)
 	e.type = _reg_eventid;
 	e.user.code = user._code;
 	e.user.data1 = (void *)user._ptr;
-	SDL_PushEvent(&e);
+	int res = SDL_PushEvent(&e);
+	printf("sdl push  event ret %u:  what %u: \n", res, user._code);
 }
 virtual void write_user(struct pe_user &user)
 {
@@ -535,7 +538,8 @@ virtual void write_user(struct pe_user &user)
 	e.type = _reg_eventid;
 	e.user.code = user._code;
 	e.user.data1 = (void *)user._ptr;
-	SDL_PushEvent(&e);
+	int res = SDL_PushEvent(&e);
+	printf("sdl push  event ret %u:  what %u: \n", res, user._code);
 }
 
 
@@ -547,9 +551,15 @@ virtual triple_int display_available()
 		}
 virtual	bool install_event_filter(ui_event_filter &&filter)
 		{
-			_filter = filter;
-			return true;
+			return install_event_filter(filter);
 		}
+virtual	bool install_event_filter(const ui_event_filter &filter)
+{
+
+	_filter = filter;
+	return true;
+}
+
 virtual bool install_audio_thread(audio_read &&reader,
 	int channel, 
 	int samplingrate, 
@@ -578,6 +588,7 @@ virtual bool install_audio_thread(audio_read &&reader,
 	format.callback = ui_platform_sdl::audio_from_call;
 	SDL_AudioSpec s;	
 	int res = SDL_OpenAudio(&format, &s);
+	printf("audio res = %d\n", res);
 	stop_audio_thread();
 	return res;
 
@@ -596,6 +607,7 @@ virtual void run_audio_thread()
 {
 	if(_auio_read)
 	{
+		printf("start audio\n");
 		SDL_PauseAudio(0);
 	}
 }
@@ -603,6 +615,7 @@ virtual void stop_audio_thread()
 {
 	if(_auio_read)
 	{
+		printf("stop audio\n");
 		SDL_PauseAudio(1);
 	}
 }
@@ -622,6 +635,7 @@ virtual	int exec()
 				}
 				else
 				{
+					printf("end loop %s\n", SDL_GetError());
 					break;
 				}
 			}
@@ -742,6 +756,7 @@ private:
 		}
 		else
 		{
+				printf("what event %d\n", e->type);
 			//event_handling_error(e);
 		}
 		

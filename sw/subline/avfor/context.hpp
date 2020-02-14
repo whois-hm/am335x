@@ -1,6 +1,8 @@
 #pragma once
 
-
+/*
+ 	 parameter code
+ */
 #define pfx_avfor_video_width 			"avfor_video_width"			
 #define pfx_avfor_video_height 			"avfor_video_height"
 #define pfx_avfor_video_vga 			"avfor_video_vga"
@@ -11,14 +13,14 @@
 #define pfx_avfor_video_format_type 	"avfor_video_format_type"	
 #define pfx_avfor_frame_width			"avfor_frame_width"
 #define pfx_avfor_frame_height			"avfor_frame_height"
-
 #define pfx_avfor_audio_channel			"avfor_audio_channel"
 #define pfx_avfor_audio_samplingrate	"avfor_audio_samplingrate"
 #define pfx_avfor_audio_format			"avfor_audio_format"
 
 
-
-
+/*
+ 	 our custom event code
+ */
 #define custom_code_end_video		0
 #define custom_code_read_pixel		1
 #define custom_code_ready_to_play	2
@@ -63,13 +65,14 @@ public:
 	}
 	avfor_context()
 	{
+
 		livemedia_pp::ref();
 	}
 	~avfor_context()
 	{
 		livemedia_pp::ref(false);
 	}
-	void parse_par(int argc, char *argv[])
+	bool parse_par(int argc, char *argv[])
 	{
 		int opt;
 		while(-1 != (opt = getopt(argc, argv, "t:l:r:v:w:h:c:s:a:")))
@@ -87,9 +90,9 @@ public:
 		}
 		if(!has_vaild_context())
 		{
-			printf("can't start avfor (option has invalid)\n");
-			exit(0);
+			return false;
 		}
+		return true;
 	}
 
 	void set_playing_list(char const *list)
@@ -146,10 +149,6 @@ public:
 		
 	}
 			 
-
-			
-
-
 	void set_frame_width(char const *c_val)
 	{
 		_attr.set(pfx_avfor_frame_width, c_val, atoi(c_val), 0.0);
@@ -282,15 +281,28 @@ public:
 	avattr _attr;
 };
 
-extern avfor_context  *_avc;
-extern ui *_int;
 
+class manager
+{
+protected:
+	avfor_context  *_avc;
+	ui *_int;
+	manager() = delete;
+	manager(avfor_context  *avc,
+	ui *interface) :
+		_avc(avc),
+		_int(interface){ }
+public:
+	virtual ~manager(){ }
+	virtual bool ready() = 0;
+	/*
+	 	 manager's event handler
+	 */
+	virtual void operator()(ui_event &e) = 0;
+};
 #include "client_manager.hpp"
 #include "cpu_manager.hpp"
 
 
-
-extern client_manager *_cmanager;
-extern cpu_manager *_cpumanager;
 
 

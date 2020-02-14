@@ -23,6 +23,7 @@ class cpu_manager;
 class cpu_usage
 {
 	friend class cpu_manager;
+	ui *_int;
 	enum command
 	{
 		start = 0,
@@ -89,7 +90,7 @@ class cpu_usage
 		double idle_per = 100.0 - cpu_per;
 		if(idle_per > 100.0)idle_per = 100.0;
 		if(idle_per < 0)idle_per = 0.0;
-		printf("%d %d %d %f %f %f %f\n", sys , usr , cpu , cpu_per, sys_per, usr_per, idle_per);
+
 		put_main(cpu_per, sys_per, usr_per, idle_per);
 		
 	}
@@ -113,9 +114,13 @@ class cpu_usage
 	}
 	
 public:
-	cpu_usage() :  
-	_interval(0),
-	_state(stop)
+	cpu_usage() : _int(nullptr),/*warnning*/
+			_interval(0),
+			_state(stop){}
+	cpu_usage(ui *interface) :
+		_int(interface),
+		_interval(0),
+		_state(stop)
 	{
 		/*at first */
 		struct tms timesample;
@@ -165,16 +170,16 @@ public:
 	}		
 };
 class cpu_manager : 
-	public wthread<cpu_usage>
+	public wthread<cpu_usage>,
+	public manager
 {
 
 public:
-
-	cpu_manager() : 
-	wthread(10, sizeof(cpu_usage:: par))
-	{
-		start(INFINITE);
-	}
+	cpu_manager(avfor_context  *avc,
+			ui *interface) :
+	wthread(10, sizeof(cpu_usage:: par)),
+	manager(avc, interface)
+	{		}
 	~cpu_manager()
 	{
 		cpu_usage:: par p;
@@ -210,6 +215,54 @@ public:
 		 sendto_wait(&p,
 			sizeof(cpu_usage:: par));
 		 return s;
+	}
+	virtual bool ready()
+	{
+		start(INFINITE, _int);
+		return true;
+	}
+	virtual void operator()(ui_event &e)
+	{
+		if(e.what() == platform_event_touch)
+		{
+			if(e.effected_widget_hint("cpu btn"))
+			{
+				if(!state())
+				{
+					start_cpu_usage(1000);
+				}
+				else
+				{
+					stop_cpu_usage();
+					_int->update_label("mainwindow","cpu btn label","cpu show",ui_color(255,0,255));
+					_int->update_label("mainwindow","cpu cpu","cpu:-%",ui_color(255,255,0));
+					_int->update_label("mainwindow","cpu sys","cpusys:-%",ui_color(0,255,0));
+					_int->update_label("mainwindow","cpu usr","cpuusr:-%",ui_color(0,0,255));
+					_int->update_label("mainwindow","cpu idle","cpuidle:-%",ui_color(255,0,255));
+				}
+			}
+		}
+		if(e.what() == platform_event_user)
+		{
+			if(e.user()->_code == custom_code_cpu_usage_notify)
+			{
+				struct cpu_manager_par *par = (struct cpu_manager_par *)e.user()->_ptr;
+
+				char buf[256] = {0, };
+				sprintf(buf, "cpu:%f%", par->_cpu);
+				_int->update_label("mainwindow","cpu cpu",buf,ui_color(255,255,0));
+				memset(buf, 0, 256);
+				sprintf(buf, "cpusys:%f%", par->_sys);
+				_int->update_label("mainwindow","cpu sys",buf,ui_color(0,255,0));
+				memset(buf, 0, 256);
+				sprintf(buf, "cpuusr:%f%", par->_usr);
+				_int->update_label("mainwindow","cpu usr",buf,ui_color(0,0,255));
+				memset(buf, 0, 256);
+				sprintf(buf, "cpuidle:%f%", par->_idle);
+				_int->update_label("mainwindow","cpu idle",buf,ui_color(255,0,255));
+			}
+		}
+
 	}
 	
 };

@@ -173,6 +173,7 @@ virtual void write_user(struct pe_user &user) = 0;
 			register if you want receiving internal notify event 
 		*/
 virtual	bool install_event_filter(ui_event_filter &&filter) = 0;
+virtual	bool install_event_filter(const ui_event_filter &filter) = 0;
 virtual bool install_audio_thread(audio_read &&reader,
 	int channel, 
 	int samplingrate, 

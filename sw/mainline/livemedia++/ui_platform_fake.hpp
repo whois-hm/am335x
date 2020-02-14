@@ -75,12 +75,16 @@ virtual triple_int display_available()
 
 		{
 			/*return normally use format */
-			return triple_int(320, 240, (in)AV_PIX_FMT_RGB24)
+			return triple_int(320, 240, (int)AV_PIX_FMT_RGB24)
 		}
 virtual	bool install_event_filter(ui_event_filter &&filter)
 		{
-			return true;
+			return install_event_filter(filter);
 		}
+virtual	bool install_event_filter(const ui_event_filter &filter)
+{
+	return true;
+}
 virtual bool install_audio_thread(audio_read &&reader,
 	int channel, 
 	int samplingrate, 
