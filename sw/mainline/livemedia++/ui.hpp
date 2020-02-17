@@ -121,7 +121,9 @@ class ui
 
 /*
 	warnning note : 
-	use for video apis : 'update*'api use in same 'make*'api thread
+
+	use for video apis : display api use must be 'main thread'(using 'write_user'),
+
 	use for audio api : we offer exclusive thread for speed
 */
 protected:

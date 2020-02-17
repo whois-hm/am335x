@@ -208,7 +208,11 @@ public:
 		else if(op == AV_LOCK_RELEASE)
 			((std::mutex *)*arg)->unlock();
 		else if(op == AV_LOCK_DESTROY)
-			delete *arg;
+		{
+			std::mutex *t = (std::mutex *)*arg;
+			delete t;
+		}
+
 		return 0;
 	}
 

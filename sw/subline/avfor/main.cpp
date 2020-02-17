@@ -266,13 +266,13 @@ public:
 					break;
 				}
 			}
-			unsigned handler_starttime = sys_time_c();
+
 			for(auto &it : _managers)
 			{
 				/*throw to manager*/
 				(*it)(e);
 			}
-			//printf("main handler return time : %u\n", sys_time_c() - handler_starttime);
+
 			return;
 		}while(0);
 

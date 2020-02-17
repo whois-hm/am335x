@@ -223,7 +223,8 @@ public:
 	}
 	virtual void operator()(ui_event &e)
 	{
-		if(e.what() == platform_event_touch)
+		if(e.what() == platform_event_touch &&
+				e.touch()->press <= 0)
 		{
 			if(e.effected_widget_hint("cpu btn"))
 			{
@@ -249,16 +250,16 @@ public:
 				struct cpu_manager_par *par = (struct cpu_manager_par *)e.user()->_ptr;
 
 				char buf[256] = {0, };
-				sprintf(buf, "cpu:%f%", par->_cpu);
+				sprintf(buf, "cpu:%f", par->_cpu);
 				_int->update_label("mainwindow","cpu cpu",buf,ui_color(255,255,0));
 				memset(buf, 0, 256);
-				sprintf(buf, "cpusys:%f%", par->_sys);
+				sprintf(buf, "cpusys:%f", par->_sys);
 				_int->update_label("mainwindow","cpu sys",buf,ui_color(0,255,0));
 				memset(buf, 0, 256);
-				sprintf(buf, "cpuusr:%f%", par->_usr);
+				sprintf(buf, "cpuusr:%f", par->_usr);
 				_int->update_label("mainwindow","cpu usr",buf,ui_color(0,0,255));
 				memset(buf, 0, 256);
-				sprintf(buf, "cpuidle:%f%", par->_idle);
+				sprintf(buf, "cpuidle:%f", par->_idle);
 				_int->update_label("mainwindow","cpu idle",buf,ui_color(255,0,255));
 			}
 		}

@@ -37,9 +37,7 @@ class local_playback :
                         _pts = av_frame_get_best_effort_timestamp(raw());
                         if(_pts != AV_NOPTS_VALUE)
                         {
-							double  pts = _pts;
                             _pts = av_q2d(_rational) * _pts;
-//							 printf("pixel %f %f\n", pts, _pts);
                         }
                     }
 //			if(raw()->best_effort_timestamp != AV_NOPTS_VALUE)
@@ -54,7 +52,6 @@ class local_playback :
 			public pcmframe_presentationtime
 	{
 		AVRational _rational;
-		unsigned a;
 		pcmframe_pts(const pcmframe &f,
 				const AVRational &rational) :
 			pcmframe_presentationtime(f),
@@ -66,16 +63,6 @@ class local_playback :
 		}
 		void operator()()
 		{
-					double test_val = 0.0;
-			if(raw()->pkt_dts != AV_NOPTS_VALUE)
-			{
-
-				test_val = av_q2d(_rational) * raw()->pkt_pts;
-//				 printf("pcm %f %f %d\n",  test_val, av_q2d(_rational), raw()->pkt_pts, a);
-			}
-			_pts =  test_val;
-			return;
-				
 			_pts = guesspts();
 		}
 
@@ -89,7 +76,6 @@ class local_playback :
 			{
 
 				test_val = av_q2d(_rational) * raw()->pkt_pts;
-			//	 printf("pcm guess %f %f %d\n",  test_val, av_q2d(_rational), raw()->pkt_pts, a);
 			}
 			return test_val;
 		}
@@ -151,7 +137,6 @@ class local_playback :
 
 				pixelframe_pts _pixelframe(*frm.raw(),
 						((local_playback *)puser)->_framescheduler._videorational);
-
 
 				/*
 				 	 	 convert if different
@@ -245,6 +230,9 @@ class local_playback :
 
 					if(_type == AVMEDIA_TYPE_AUDIO)
 						makeframe =  decoder::decoding(pkt, functor_makeframe_audio(), this->_ptr)  > 0;
+
+						usleep(1000 * 5);
+
 
 				}
 				return true;
@@ -424,17 +412,41 @@ public:
 		double master_pts;
 		enum AVMediaType master_type;
 		/*first user 'take' blockking  */
+		enum  local_playback_state prev_state = _state;
+
 		pause();
+
+
 		/*second wait for finish streamers queue's piled all event*/
 		for(auto &it : _streamers)
 		{
 			it.second.first->wait_dump();
 		}
-		/*last seeking */
-		std::lock_guard<std::mutex> a(_mediacontainerlock);
-		/*not access 'this->get_master_clock()' because master pts value has not visible*/
 		master_type	= _framescheduler.get_clock_master(&master_pts);
-		_mediacontainer.seek(master_type,incr, master_pts);
+		/*exist data clear*/
+		_framescheduler.data_clear();
+		/* seeking */
+
+		{
+			std::lock_guard<std::mutex> a(_mediacontainerlock);
+			/*not access 'this->get_master_clock()' because master pts value has not visible*/
+			_mediacontainer.seek(master_type,incr, master_pts);
+		}
+
+
+		/*ready next frame*/
+		for(auto &it : _streamers)
+		{
+			it.second.first->request_1frame();
+		}
+
+		/*if user state running then resume*/
+		if(prev_state == local_playback_state_run ||
+				prev_state == local_playback_state_open)
+		{
+			resume();
+		}
+
 	}
 
 	bool has(avattr::avattr_type_string &&key)

@@ -129,11 +129,20 @@ public:
 		targetstream = find_stream(base);
 		if(targetstream)
 		{
+			/*
+				clear the readed datas
+			 */
+			for(auto &it : _packets)
+			{
+				it.clear();
+			}
+
 			pts += incr;
 			seekpts = (int64_t) pts * AV_TIME_BASE;
 			seekflags = incr < 0 ? AVSEEK_FLAG_BACKWARD : 0;
 
 			seekpts = av_rescale_q(seekpts, AV_TIME_BASE_Q, timebase(*targetstream));
+
 
 
 			av_seek_frame(_context, targetstream->index, seekpts, seekflags);
@@ -279,19 +288,19 @@ public:
         }
 
 private:
-        void put_metadata(char *key, unsigned val, std::string *t_string = nullptr)
+        void put_metadata(const char *key, unsigned val, std::string *t_string = nullptr)
         {
             char buffer[1024] = {0,};
             snprintf(buffer, 1000, "%d", val);
             put_metadata(key, buffer, t_string);
         }
-        void put_metadata(char *key, double val, std::string *t_string = nullptr)
+        void put_metadata(const char *key, double val, std::string *t_string = nullptr)
         {
             char buffer[1024] = {0,};
             snprintf(buffer, 1000, "%f", val);
             put_metadata(key, buffer, t_string);
         }
-        void put_metadata(char *key, const duration_div &duration, std::string *t_string = nullptr)
+        void put_metadata(const char *key, const duration_div &duration, std::string *t_string = nullptr)
         {
             char buffer[1024] = {0,};
             snprintf(buffer, 1000, "%d(h:%d m:%d s:%d)", std::get<3>(duration),
@@ -300,11 +309,11 @@ private:
                      std::get<2>(duration) );
             put_metadata(key, buffer, t_string);
         }
-        void put_metadata(char *linevalue, std::string *t_string = nullptr)
+        void put_metadata(const char *linevalue, std::string *t_string = nullptr)
         {
             put_metadata(linevalue, "", t_string);
         }
-        void put_metadata(char *key, char *value, std::string *t_string = nullptr)
+        void put_metadata(const char *key, const char *value, std::string *t_string = nullptr)
         {
             if(key && value)
             {
@@ -322,7 +331,7 @@ private:
                 /*
                     put console
                  */
-                printf(buffer);
+                printf("%s", buffer);
                 printf("\n");
             }
         }

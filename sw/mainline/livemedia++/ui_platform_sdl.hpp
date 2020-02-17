@@ -26,7 +26,7 @@ private:
 					const ui_rect &rect,
 					SDL_Renderer *target_renderer) : 
 					_handle(n),
-					_color(_color), 
+					_color(color),
 					_rect(rect),
 					_target_renderer(target_renderer){}
 				virtual ~widget(){}
@@ -77,6 +77,7 @@ private:
 					_texture = rhs._texture;
 					rhs._target_renderer = nullptr;
 					rhs._texture = nullptr;
+					return *this;
 				}
 				void draw_color(const ui_color &c)
 				{
@@ -231,9 +232,9 @@ private:
 						}
 
 					SDL_Color color = {
-						std::get<0>(_color),
-						std::get<1>(_color),
-						std::get<2>(_color)
+						(Uint8)std::get<0>(_color),
+						(Uint8)std::get<1>(_color),
+						(Uint8)std::get<2>(_color)
 					};
 					_surface = TTF_RenderText_Solid(_target_font,
 						_label, 
@@ -342,6 +343,7 @@ private:
 						//delete it;
 					//}
 					rhs._widgets.clear();
+					return *this;
 				}
 				virtual ~window()
 				{
@@ -390,13 +392,12 @@ public :
 			_font(nullptr),
 			_filter(nullptr)
 		{
-			SDL_Init(SDL_INIT_EVERYTHING);
+			SDL_Init(SDL_INIT_VIDEO |
+					SDL_INIT_AUDIO);
 			TTF_Init();
-			printf("11aaa %s\n", sdl_ttf_fontpath);
 			_font = TTF_OpenFont(sdl_ttf_fontpath, 15);
 			TTF_SetFontKerning(_font, 1);
 			_reg_eventid = SDL_RegisterEvents(1);
-			printf("11bbb\n");
 		}
 	virtual ~ui_platform_sdl()
 		{
@@ -523,13 +524,14 @@ virtual	void update_label(ui_handle parent_win,
 		}
 virtual void write_user(struct pe_user &&user)
 {
+
 	SDL_Event e;
 	memset(&e, 0, sizeof(SDL_Event));
 	e.type = _reg_eventid;
 	e.user.code = user._code;
 	e.user.data1 = (void *)user._ptr;
-	int res = SDL_PushEvent(&e);
-	printf("sdl push  event ret %u:  what %u: \n", res, user._code);
+	SDL_PushEvent(&e);
+
 }
 virtual void write_user(struct pe_user &user)
 {
@@ -538,8 +540,8 @@ virtual void write_user(struct pe_user &user)
 	e.type = _reg_eventid;
 	e.user.code = user._code;
 	e.user.data1 = (void *)user._ptr;
-	int res = SDL_PushEvent(&e);
-	printf("sdl push  event ret %u:  what %u: \n", res, user._code);
+	SDL_PushEvent(&e);
+
 }
 
 
@@ -587,8 +589,11 @@ virtual bool install_audio_thread(audio_read &&reader,
 	format.userdata = (void *)this;
 	format.callback = ui_platform_sdl::audio_from_call;
 	SDL_AudioSpec s;	
+	printf("audio driver = %s\n", SDL_GetCurrentAudioDriver());
+
 	int res = SDL_OpenAudio(&format, &s);
-	printf("audio res = %d\n", res);
+
+	printf("audio res = %d %s\n", res, SDL_GetError());
 	stop_audio_thread();
 	return res;
 
@@ -638,6 +643,7 @@ virtual	int exec()
 					printf("end loop %s\n", SDL_GetError());
 					break;
 				}
+				SDL_PumpEvents();
 			}
 	
 			return res;
@@ -717,6 +723,7 @@ private:
 		parameter.touch.y = e->button.y;
 		parameter.touch.press = e->type == SDL_MOUSEBUTTONDOWN ? 125 : 0;
 
+
 		if(_filter)
 		{			
 			window *win = _windows.front();
@@ -730,7 +737,6 @@ private:
 					std::get<0>(wit->_rect) + std::get<2>(wit->_rect) >= ue.touch()->x &&
 					std::get<1>(wit->_rect) + std::get<3>(wit->_rect) >= ue.touch()->y)
 				{
-					printf("get %s\n", wit->_handle);
 					ue._effect_widgets.push_back(std::string(wit->_handle));
 				}
 			}
@@ -756,7 +762,6 @@ private:
 		}
 		else
 		{
-				printf("what event %d\n", e->type);
 			//event_handling_error(e);
 		}
 		

@@ -25,7 +25,7 @@ struct throw_if
 
 					for(int i = 0; i < size; i++)
 					{
-						printf("addr2line -f -C -e avfor %08x\n", backtrace_addr[i]);
+						printf("addr2line -f -C -e avfor %08x\n", (unsigned)backtrace_addr[i]);
 					}
 				}
 				else

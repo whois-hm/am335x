@@ -115,7 +115,7 @@ private:
 
 			if(pix.can_take())
 			{
-				printf("take..\n");
+
 				pix.clip_main_send_time();
 				notify_to_main(custom_code_read_pixel, (void *)pix.clone());
 				if(_play->get_master_clock() == AVMEDIA_TYPE_VIDEO)
@@ -163,21 +163,17 @@ public:
 		}	
 		if(_play->has( avattr_key::frame_audio))
 		{
-			printf("audio load\n");
 			_int->install_audio_thread(
 				[&](unsigned char *pdata,int ndata)->void
 				{
-				printf("audio load calll\n");
 						memset(pdata, 0, ndata);
 						if(!_bstop)
 						{
 							pcm_require require;
 							require.second = ndata;
-							int res = _play->take(require);
+							_play->take(require);
 							if(require.first.can_take())
 							{					
-								double pts = require.first.getpts();
-												//printf("audio pts = %f\n", pts);
 								memcpy(pdata, require.first.read(), require.first.size());
 								if(_play->get_master_clock() == AVMEDIA_TYPE_AUDIO)
 								{
@@ -187,10 +183,6 @@ public:
 
 									notify_to_main(custo_code_presentation_tme, (void *)ptr);
 								}
-							}
-							else
-							{
-								printf("audio no data %d\n", res);
 							}
 						}
 						
@@ -209,9 +201,9 @@ public:
 		_bstop = true;
 		if(_play)
 		{
-			_play->resume(true);/*return running a/v thread*/			
+			_play->resume(true);/*return running a/v thread(for no reference '_play'*/
 		}
-		_int->uninstall_audio_thread();/*audio thread close*/
+		_int->uninstall_audio_thread();/*audio thread close (for no reference '_play')*/
 		if(_vreader)/*video thread close*/
 		{
 			_vreader->join();
@@ -237,15 +229,24 @@ public:
 
 	virtual void operator()(ui_event &e)
 	{
-		if(e.what() == platform_event_touch)
+		if(e.what() == platform_event_touch &&
+				e.touch()->press <= 0)
 		{
 			if(e.effected_widget_hint("close btn")) 		_int->set_loopflag(false);
-			else if(e.effected_widget_hint("left btn")) 	_play->seek(-10.0);
-			else if(e.effected_widget_hint("right btn")) 	_play->seek(10.0);
+			else if(e.effected_widget_hint("left btn")) 	_play->seek(-3.0);
+			else if(e.effected_widget_hint("right btn")) 	_play->seek(3.0);
 			else if(e.effected_widget_hint("play btn"))
 			{
-				if(_bpause) 	_play->resume();
-				else 			_play->pause();
+				if(_bpause)
+				{
+					_play->resume();
+					_bpause = false;
+				}
+				else
+				{
+					_play->pause();
+					_bpause = true;
+				}
 			}
 		}
 		if(e.what() == platform_event_user)

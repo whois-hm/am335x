@@ -63,7 +63,12 @@ public:
 	}
 	virtual ~framebuffering_type()
 	{
+		data_clear();
+	}
+	void data_clear()
+	{
 		_pixelframe.clear();
+		_pcmframe.first._index = 0;
 		_pcmframe.second.clear();
 	}
 	void operator <<(const _Tframe_pixel &rf)
@@ -330,6 +335,10 @@ public:
 		framebuffering_type<_type_pixelframe, _type_pcmframe>(attr),
 		_masterclock(AVMEDIA_TYPE_UNKNOWN)
 	{
+		data_clear();
+	}
+	void data_clear()
+	{
 		_video[last_presentation_time] =
 		_video[current_presentation_time] =
 		_video[last_delay_time] =
@@ -353,6 +362,7 @@ public:
 		_audio_bps = std::get<0>(framebuffering_type<_type_pixelframe, _type_pcmframe>::_pcmframe.first.audio_output_attr) *
 				std::get<1>(framebuffering_type<_type_pixelframe, _type_pcmframe>::_pcmframe.first.audio_output_attr) *
 				av_get_bytes_per_sample((enum AVSampleFormat)std::get<2>(framebuffering_type<_type_pixelframe, _type_pcmframe>::_pcmframe.first.audio_output_attr));
+		framebuffering_type<_type_pixelframe, _type_pcmframe>::data_clear();
 	}
 	void set_clock_master(enum AVMediaType masterclock)
 	{
