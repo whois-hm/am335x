@@ -218,9 +218,6 @@ public:
 
 	static livemedia_pp *obj;
 	std::mutex _filtercontext_container_mutex;
-#if memory_trace_level >= 2
-	std::mutex _global_mutex;
-#endif
 	std::vector<filtercontext_container>_filercontext_container;
 };
 

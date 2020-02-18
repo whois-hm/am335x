@@ -54,9 +54,7 @@ public:
 				printf("can't parse parameters\n");
 				break;
 			}
-			printf("11\n");
 			_int = new ui_platform("user interface");
-			printf("1122\n");
 			display_fmt = _int->display_available();
 			if(std::get<0>(display_fmt) <= 0 &&
 					std::get<1>(display_fmt) <= 0 &&
@@ -118,7 +116,7 @@ public:
 					"display area",
 					ui_color(100, 100, 100),
 					ui_rect(0, title_min_h, vwidth, vheight));
-				printf("111111222\n");
+
 				_int->make_pannel("mainwindow",
 					"cpu display area",
 					ui_color(200, 200, 200),
@@ -241,6 +239,7 @@ public:
 			}
 			/*now startp*/
 
+			printf("avfor loop start");
 			res = _int->exec();
 		}while(0);
 
@@ -287,7 +286,8 @@ public:
 	avfor : main
 --------------------------------------*/
 int main(int argc, char *argv[])
-{
+{			//rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov
+	//rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov
 	return avfor(argc, argv)();
 };
 

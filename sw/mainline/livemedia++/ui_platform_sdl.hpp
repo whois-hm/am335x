@@ -105,7 +105,6 @@ private:
 					
 					SDL_UnlockTexture(_texture);
 					texture_out();
-					printf("draw : %s %d %d %d %d\n", _handle, std::get<0>(_rect) , std::get<1>(_rect), std::get<2>(_rect) , std::get<3>(_rect));
 				}
 				void draw_pixel( pixel &pix)	
 				{
@@ -589,11 +588,9 @@ virtual bool install_audio_thread(audio_read &&reader,
 	format.userdata = (void *)this;
 	format.callback = ui_platform_sdl::audio_from_call;
 	SDL_AudioSpec s;	
-	printf("audio driver = %s\n", SDL_GetCurrentAudioDriver());
 
 	int res = SDL_OpenAudio(&format, &s);
 
-	printf("audio res = %d %s\n", res, SDL_GetError());
 	stop_audio_thread();
 	return res;
 
@@ -612,7 +609,6 @@ virtual void run_audio_thread()
 {
 	if(_auio_read)
 	{
-		printf("start audio\n");
 		SDL_PauseAudio(0);
 	}
 }
@@ -620,7 +616,6 @@ virtual void stop_audio_thread()
 {
 	if(_auio_read)
 	{
-		printf("stop audio\n");
 		SDL_PauseAudio(1);
 	}
 }

@@ -46,6 +46,8 @@ public:
 		rtsp_describe,
 		rtsp_setup,
 		rtsp_play,
+		rtsp_pause,
+		rtsp_resume,
 		rtsp_max
 	}rtsp_command;
 	struct report
@@ -110,7 +112,8 @@ public:
 				 _session(nullptr),
 				 _subsession(nullptr),
 				 _iter(nullptr),
-				 _notify(notify)
+				 _notify(notify),
+				 _duration(INFINITE)
 
 	{
 		if(authid && authpwd)
@@ -128,16 +131,15 @@ public:
 	}
 	void startplay()
 	{
-		MediaSubsessionIterator iter(*_session);
-		mediasubsession *ptr = nullptr;
-		while((ptr = ((mediasubsession *)iter.next())) != nullptr)
-		{
-			if(ptr->sink)
-			{
-				sendcommand(rtsp_play);
-				break;
-			}
-		}
+		sendcommand(rtsp_play);
+	}
+	void startpause()
+	{
+		sendcommand(rtsp_pause);
+	}
+	void startresume()
+	{
+		sendcommand(rtsp_resume);
 	}
 protected:
 	/*
@@ -347,6 +349,8 @@ protected:
 	mediasubsession *_subsession;
 	MediaSubsessionIterator *_iter;
 	report _notify;
+	unsigned _duration;
+	unsigned _duration_chk;
 
 
 
@@ -482,18 +486,18 @@ protected:
 			return;
 		}
 		double session_duration = 0.0;
-		unsigned usec_to_delay = 0;
 
 		session_duration = _session->playStartTime() - _session->playEndTime();
 		if(session_duration > 0)
 		{
-			usec_to_delay = (unsigned )(session_duration * 1000000);
+			_duration = (unsigned )(session_duration * 1000);
+			_duration_chk = sys_time_c();
 			if(_scheduledtoken)
 			{
 				envir().taskScheduler().unscheduleDelayedTask(_scheduledtoken);
 				_scheduledtoken = nullptr;
 			}
-			_scheduledtoken = envir().taskScheduler().scheduleDelayedTask(usec_to_delay, [](void *ptr)->void{
+			_scheduledtoken = envir().taskScheduler().scheduleDelayedTask(_duration * 1000, [](void *ptr)->void{
 				((live5rtspclient *)ptr)->overtime_stream();
 			}, this);
 		}
@@ -509,6 +513,80 @@ protected:
 				}, ptr);
 			}
 		}
+		delete [] str;
+	}
+	virtual void response_pause(int code, char *str)
+	{
+		if(code != 0)
+		{
+			printf("can't allow method pause \n%s\n", str);
+			delete [] str;
+			/*
+			 	 no puase is not except
+			 */
+		//	_notify._except_session(_notify._ptr);
+			return;
+		}
+		if(_scheduledtoken)
+		{
+			envir().taskScheduler().unscheduleDelayedTask(_scheduledtoken);
+			_scheduledtoken = nullptr;
+		}
+		if(_duration != INFINITE)
+		{
+			_duration -=  sys_time_c() - _duration_chk;
+		}
+
+
+		MediaSubsessionIterator iter(*_session);
+		mediasubsession *ptr = nullptr;
+		while((ptr = ((mediasubsession *)iter.next())) != nullptr)
+		{
+			if(ptr->sink)
+			{
+				ptr->sink->stopPlaying();
+			}
+		}
+		delete [] str;
+	}
+	virtual void response_resume(int code, char *str)
+	{
+		if(code != 0)
+		{
+			printf("can't allow method resume\n%s\n", str);
+			delete [] str;
+			/*
+				 no resume is not except
+			 */
+					//	_notify._except_session(_notify._ptr);
+			//_notify._except_session(_notify._ptr);
+			return;
+		}
+		if(_scheduledtoken)
+		{
+			envir().taskScheduler().unscheduleDelayedTask(_scheduledtoken);
+			_scheduledtoken = nullptr;
+		}
+		if(_duration != INFINITE)
+		{
+			_duration_chk = sys_time_c();
+			_scheduledtoken = envir().taskScheduler().scheduleDelayedTask(_duration * 1000, [](void *ptr)->void{
+				((live5rtspclient *)ptr)->overtime_stream();
+			}, this);
+		}
+
+		MediaSubsessionIterator iter(*_session);
+		mediasubsession *ptr = nullptr;
+		while((ptr = ((mediasubsession *)iter.next())) != nullptr)
+		{
+			if(ptr->sink)
+			{
+				ptr->sink->startPlaying(*ptr->readSource(), [](void *ptr)->void{
+					((live5rtspclient *)(((mediasubsession *)ptr)->miscPtr))->subsession_bye(ptr);
+				}, ptr);
+			}
+		}
+		delete [] str;
 	}
 	void subsession_bye(void *ptr)
 	{
@@ -586,22 +664,73 @@ protected:
 	void sendcommand(rtsp_command cmd)
 	{
 		if(cmd == rtsp_option)
-			RTSPClient::sendOptionsCommand([](RTSPClient* a, int b, char* c) ->void{((live5rtspclient *)a)->response_option(b, c);},
+			RTSPClient::sendOptionsCommand(
+					[](RTSPClient* a, int b, char* c) ->void
+					{
+						((live5rtspclient *)a)->response_option(b, c);
+					},
 					_auth);
 		else if(cmd == rtsp_describe)
-			RTSPClient::sendDescribeCommand([](RTSPClient* a, int b, char* c) ->void{((live5rtspclient *)a)->response_describe(b, c);},
+			RTSPClient::sendDescribeCommand(
+					[](RTSPClient* a, int b, char* c) ->void{
+					(
+						(live5rtspclient *)a)->response_describe(b, c);
+					},
 					_auth);
 		else if(cmd == rtsp_setup)
-			RTSPClient::sendSetupCommand(dynamic_cast<MediaSubsession &>(*_subsession),[](RTSPClient* a, int b, char* c) ->void{((live5rtspclient *)a)->response_setup(b, c);},
-					False, False, False, _auth);
+			RTSPClient::sendSetupCommand(dynamic_cast<MediaSubsession &>(*_subsession),
+					[](RTSPClient* a, int b, char* c) ->void
+					{
+						((live5rtspclient *)a)->response_setup(b, c);
+					},
+					False,
+					False,
+					False,
+					_auth);
 		else if(cmd == rtsp_play)
 		{
 			if(_session->absEndTime())
-				RTSPClient::sendPlayCommand(dynamic_cast<MediaSession &>(*_session), [](RTSPClient* a, int b, char* c) ->void{((live5rtspclient *)a)->response_play(b, c);}, _session->absStartTime(), _session->absEndTime(), 1.0f,
+				RTSPClient::sendPlayCommand(dynamic_cast<MediaSession &>(*_session),
+						[](RTSPClient* a, int b, char* c) ->void
+						{
+							((live5rtspclient *)a)->response_play(b, c);
+						},
+						_session->absStartTime(),
+						_session->absEndTime(),
+						1.0f,
 						_auth);
 			else
-				RTSPClient::sendPlayCommand(dynamic_cast<MediaSession &>(*_session), [](RTSPClient* a, int b, char* c) ->void{((live5rtspclient *)a)->response_play(b, c);}, 0.0f, -1.0f, 1.0f,
+				RTSPClient::sendPlayCommand(dynamic_cast<MediaSession &>(*_session),
+						[](RTSPClient* a, int b, char* c) ->void
+						{
+							((live5rtspclient *)a)->response_play(b, c);
+						},
+						0.0f,
+						-1.0f,
+						1.0f,
 						_auth);
+		}
+		else if(cmd == rtsp_pause)
+		{
+			RTSPClient::sendPauseCommand(dynamic_cast<MediaSession &>(*_session),
+					[](RTSPClient* a, int b, char* c) ->void
+					{
+						((live5rtspclient *)a)->response_pause(b, c);
+					},
+					_auth);
+		}
+		else if(cmd == rtsp_resume)
+		{
+
+			RTSPClient::sendPlayCommand(dynamic_cast<MediaSession &>(*_session),
+					[](RTSPClient* a, int b, char* c) ->void
+					{
+						((live5rtspclient *)a)->response_resume(b, c);
+					},
+					-1.0f,
+					-1.0f,
+					1.0f,
+					_auth);
 		}
 	}
 

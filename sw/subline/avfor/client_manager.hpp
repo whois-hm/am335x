@@ -104,6 +104,7 @@ private:
 			if(res < 0)
 			{
 				/*error or end of pixel*/
+				printf("read video err return\n");
 				notify_to_main(custom_code_end_video, nullptr);
 				break;
 			}
@@ -155,7 +156,8 @@ public:
 		}
 		if(attr.has_frame_any())
 		{
-			_play = new playback(attr, _avc->_attr.get_str(pfx_avfor_playlist).c_str());
+
+			_play = new playback(attr, _avc->_attr.get_str(pfx_avfor_playlist).c_str(), 5000);
 		}
 		if(_play->has( avattr_key::frame_video))
 		{	

@@ -3,7 +3,15 @@
 class rtsp_playback :
 		public playback_inst
 {
-
+	enum  rtsp_playback_state
+	{
+		rtsp_playback_state_open = 0,
+		rtsp_playback_state_pause_from_open,
+		rtsp_playback_state_pause_from_run,
+		rtsp_playback_state_run,
+		rtsp_playback_state_close,
+		rtsp_playback_state_max
+	};
 	struct pixelframe_pts :
 			public pixelframe_presentationtime
 	{
@@ -247,6 +255,7 @@ class rtsp_playback :
 		std::string live5title;
 		std::mutex _accesslock;
 		std::mutex _framelock;
+		std::mutex _pauselock;
 	public:
 		streamer const &operator = (streamer const &) =  delete;
 		streamer(const streamer &rhs) = delete;
@@ -356,6 +365,7 @@ class rtsp_playback :
 		}
 		void shutdown()
 		{
+			printf("shutdown....\n");
 			autolock a(_accesslock);
 			if(exec())
 			{
@@ -371,6 +381,17 @@ class rtsp_playback :
 			autolock a(_accesslock);
 			return exec() ? false : true;
 		}
+		void pause_lock(bool bpause)
+		{
+			if(bpause)
+			{
+				_pauselock.lock();
+			}
+			else
+			{
+				_pauselock.unlock();
+			}
+		}
 		template <class T>
 		int get_frame(T &d)
 		{
@@ -380,24 +401,31 @@ class rtsp_playback :
 				 or 0 no ready frame
 				 or < 0 err
 			 */
-
+			autolock w(_pauselock);
 			/*
 				 if no syncronize 'exec' but we maintain this class
 			 */
 			if(has_shutdowned())
 			{
+				printf("get frame shutdown\n");
 				return -1;
 			}
+
+
 			autolock a(_framelock);
 			*_framebuffer >> (d);
 			return d.can_take() ? 1 : 0;
 		}
 		int get_frame(pcm_require &d)
 		{
+			autolock w(_pauselock);
 			if(has_shutdowned())
 			{
+
 				return -1;
 			}
+
+
 			autolock a(_framelock);
 			*_framebuffer >> (d);
 			return d.first.can_take() ? 1 : 0;
@@ -407,11 +435,14 @@ class rtsp_playback :
 
 
 private:
+	enum  rtsp_playback_state _state;
 	unsigned _connection_timeout;
 	live5scheduler <live5rtspclient>*_scheduler;
 	semaphore _conwait_sema;
 	std::pair<std::mutex , std::vector<streamer *>> _stremers;
 	static const unsigned  int live5scheduler_rtsp_playback_startplay = live5scheduler<live5rtspclient>::live5scheduler_trigger_id_user_start;
+	static const unsigned  int live5scheduler_rtsp_playback_startpause = live5scheduler_rtsp_playback_startplay + 1;
+	static const unsigned  int live5scheduler_rtsp_playback_startresume= live5scheduler_rtsp_playback_startpause + 1;
 
 
 
@@ -533,6 +564,7 @@ private:
 		if(!new_streamer->stream_decoder_open_test())
 		{
 			delete new_streamer;
+			printf("decoder open test fail\n");
 			return false;
 		}
 
@@ -588,6 +620,7 @@ public:
 			char const *auth_id = nullptr,
 			char const *auth_pwd = nullptr) :
 				playback_inst(attr),
+				_state(rtsp_playback_state_open),
 				_connection_timeout(connectiontime) ,
 				_scheduler(nullptr)
 
@@ -626,11 +659,21 @@ public:
 				[](	live5scheduler<live5rtspclient> *scheduler , void *ptr)->void {
 					scheduler->refcallable()->startplay(); }, nullptr);
 
+		_scheduler->register_trigger(live5scheduler_rtsp_playback_startpause,
+				[](	live5scheduler<live5rtspclient> *scheduler , void *ptr)->void {
+					scheduler->refcallable()->startpause(); }, nullptr);
+
+		_scheduler->register_trigger(live5scheduler_rtsp_playback_startresume,
+				[](	live5scheduler<live5rtspclient> *scheduler , void *ptr)->void {
+					scheduler->refcallable()->startresume(); }, nullptr);
+
 		_scheduler->start(true,/*start in new thread*/
 				_report,
 				url,
 				auth_id,
 				auth_pwd);
+
+		pause();
 	}
 	virtual ~rtsp_playback()
 	{
@@ -650,7 +693,7 @@ public:
 		}
 		_stremers.second.clear();
 	}
-	virtual void connectionwait()
+	virtual bool connectionwait()
 	{
 		if(SEMA_lock(&_conwait_sema, _connection_timeout) != WQ_SIGNALED)
 		{
@@ -658,21 +701,90 @@ public:
 			 	 when thread has close, reporting value all cleared
 			 	 (this mean when thread has close, class  'streamer' has all closed, but not deleted)
 			 */
+			_state = rtsp_playback_state_close;
 			if(_scheduler)
 			{
 				delete _scheduler;
 				_scheduler = nullptr;
 			}
-			return;
+			return false;
 		}
+		return true;
 	}
 	virtual void pause()
 	{
+		if(_state == rtsp_playback_state_open)
+		{
+			_state = rtsp_playback_state_pause_from_open;
+		}
+		else if(_state == rtsp_playback_state_run)
+		{
+			_state = rtsp_playback_state_pause_from_run;
+			if(_scheduler)
+			{
+				_scheduler->trigger(live5scheduler_rtsp_playback_startpause);
+			}
+		}
+		else return;
 
+		for(auto &it : _stremers.second)
+		{
+			it->pause_lock(true);
+		}
 	}
-	virtual void resume(bool closing)
+	virtual void resume(bool closing = false)
 	{
+		struct resume_table
+		{
+			bool bplay;
+			bool bresume;
+			bool unlock;
+			enum  rtsp_playback_state next;
+		};
 
+		static struct resume_table table[rtsp_playback_state_max][2] =
+		{
+				{
+						{true, false, false, rtsp_playback_state_pause_from_run},/*state = open, closing = false*/
+						{false, false, false, rtsp_playback_state_close},/*state = open, closing = true*/
+				},
+				{
+						{true, false, true, rtsp_playback_state_run},/*state = pause_from_open, closing = false*/
+						{false, false, true, rtsp_playback_state_close},/*state = pause_from_open, closing = true*/
+				},
+				{
+						{false, true, true, rtsp_playback_state_run},/*state = pause_from_run, closing = false*/
+						{false, false, true, rtsp_playback_state_close},/*state = pause_from_run, closing = true*/
+				},
+				{
+						{false, false, false, rtsp_playback_state_run},/*state = run, closing = false*/
+						{false, false, false, rtsp_playback_state_close},/*state = run, closing = true*/
+				},
+				{
+						{false, false, false, rtsp_playback_state_close},/*state = close, closing = false*/
+						{false, false, false, rtsp_playback_state_close},/*state = close, closing = true*/
+				}
+		};
+		resume_table what = table[_state][closing ? 1 : 0];
+		if(what.bplay)
+		{
+			play();
+		}
+		if(what.bresume)
+		{
+			if(_scheduler)
+			{
+				_scheduler->trigger(live5scheduler_rtsp_playback_startresume);
+			}
+		}
+		if(what.unlock)
+		{
+			for(auto &it : _stremers.second)
+			{
+				it->pause_lock(false);
+			}
+		}
+		_state = what.next;
 	}
 	virtual void seek(double incr)
 	{
@@ -707,9 +819,14 @@ public:
 	}
 	virtual void play()
 	{
-		if(_scheduler)
+		if(_state == rtsp_playback_state_open ||
+				_state == rtsp_playback_state_pause_from_open)
 		{
-			_scheduler->trigger(live5scheduler_rtsp_playback_startplay);
+			if(_scheduler)
+			{
+				_state = rtsp_playback_state_run;
+				_scheduler->trigger(live5scheduler_rtsp_playback_startplay);
+			}
 		}
 	}
         virtual duration_div duration()
@@ -729,6 +846,13 @@ public:
 			find_and(title.c_str(), [&](streamer *t)->void{
 				bfound = true;
 				ret = t->get_frame(output);
+				/*
+				 	 other state manage in streamer
+				 */
+				if(_state ==rtsp_playback_state_close)
+				{
+					ret = -1;
+				}
 			});
 		}
 
@@ -736,6 +860,10 @@ public:
 		{
 			find_and(AVMEDIA_TYPE_VIDEO, [&](streamer *t)-> void{
 						ret = t->get_frame(output);
+						if(_state ==rtsp_playback_state_close)
+						{
+							ret = -1;
+						}
 					});
 		}
 		return ret;
@@ -753,12 +881,20 @@ public:
 			find_and(title.c_str(), [&](streamer *t)->void{
 				bfound = true;
 				ret = t->get_frame(output);
+				if(_state ==rtsp_playback_state_close)
+				{
+					ret = -1;
+				}
 			});
 		}
 		if ( !bfound )
 		{
 			find_and(AVMEDIA_TYPE_AUDIO, [&](streamer *t)->void{
 							ret = t->get_frame(output);
+							if(_state ==rtsp_playback_state_close)
+							{
+								ret = -1;
+							}
 						});
 		}
 		return ret;

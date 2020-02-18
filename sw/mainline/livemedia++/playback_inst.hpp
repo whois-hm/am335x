@@ -4,7 +4,7 @@ struct playback_inst
 	avattr _attr;
 	playback_inst(const avattr &attr) : _attr(attr){}
         virtual ~playback_inst (){}
-        virtual void connectionwait(){}
+        virtual bool connectionwait(){return true;}
 	virtual void pause()  = 0;
 	virtual void resume(bool closing = false)  = 0;
 	virtual void seek(double incr)  = 0;

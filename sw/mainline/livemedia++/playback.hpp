@@ -16,6 +16,7 @@ public:
 			char const *pwd = nullptr)
 	{
 		playback_inst *inst = nullptr;
+		bool res = true;
 		if(!attr.has_frame_any())
 		{
 			return nullptr;
@@ -32,7 +33,15 @@ public:
 
 		if(inst)
 		{
-			inst->connectionwait();
+			res = inst->connectionwait();
+		}
+		if(!res)
+		{
+			if(inst)
+			{
+				delete inst;
+				inst = nullptr;
+			}
 		}
 		return inst;
 	}
