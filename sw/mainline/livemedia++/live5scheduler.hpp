@@ -4,7 +4,7 @@
 
 template
 <typename Callable>
-class live5scheduler final
+class live5scheduler
 {
 public:
 	typedef std::function<void (live5scheduler<Callable> *, void *)> usreventfunction;
