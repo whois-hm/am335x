@@ -207,6 +207,7 @@ typedef ui_platform_embedded ui_platform;
 #include "ui_platform_sdl.hpp"
 typedef ui_platform_sdl ui_platform;
 #else 
-#include "ui_platform_fake.hpp"
-typedef ui_platform_fake ui_platform;
+
+//typedef ui_platform_fake ui_platform;
 #endif
+#include "ui_platform_fake.hpp"

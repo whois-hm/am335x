@@ -298,7 +298,7 @@ private:
 						std::get<1>(_rect),
 						std::get<2>(_rect),
 						std::get<3>(_rect),
-						SDL_WINDOW_SHOWN);
+						SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS);
 					_render = SDL_CreateRenderer(_window, -1, 0);
 					SDL_SetRenderDrawColor(_render,
 						0, 0, 0, 255);
@@ -587,12 +587,26 @@ virtual bool install_audio_thread(audio_read &&reader,
 	format.format = sdlformat;
 	format.userdata = (void *)this;
 	format.callback = ui_platform_sdl::audio_from_call;
-	SDL_AudioSpec s;	
+	SDL_AudioSpec s;
+	int numberof_driver = SDL_GetNumAudioDrivers();
+	printf("audio driver %d found\n", numberof_driver);
+	for(int i = 0; i < numberof_driver; i++)
+	{
+		printf("%d = %s\n", i + 1, SDL_GetAudioDriver(i));
+	}
+
+	//int res = SDL_OpenAudioDevice("alsa",false, &format, &s, 0);
+
 
 	int res = SDL_OpenAudio(&format, &s);
-
+	if(res < 0)
+	{
+		printf("%s\n", SDL_GetError());
+	}
+	//printf("current selected audio driver = %s\n", SDL_GetCurrentAudioDriver());
 	stop_audio_thread();
-	return res;
+	return res == 0;
+
 
 }
 virtual void uninstall_audio_thread()

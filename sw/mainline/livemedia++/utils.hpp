@@ -45,10 +45,10 @@ typedef std::pair<pcm,/*pcm data*/
 		> pcm_require;
 
 typedef std::function<void * (size_t)> base_allocator;
-#define __base__malloc__  libwq_malloc
+#define __base__malloc__  malloc//libwq_malloc
 
 typedef std::function<void (void *)> base_deallocator;
-#define __base__free__ libwq_free
+#define __base__free__ free//libwq_free
 
 
 

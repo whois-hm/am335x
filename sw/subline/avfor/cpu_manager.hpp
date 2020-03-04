@@ -58,7 +58,7 @@ class cpu_usage
 	{
 		
 		struct pe_user u;
-		u._code = custom_code_cpu_usage_notify;
+		u._code = custom_code_util_cpu_usage_notify;
 		u._ptr = (void *)new cpu_manager_par(cpu, sys, usr, idle);
 		_int->write_user(u);
 		
@@ -223,44 +223,28 @@ public:
 	}
 	virtual void operator()(ui_event &e)
 	{
-		if(e.what() == platform_event_touch &&
-				e.touch()->press <= 0)
+		if(e.what() == platform_event_user)
 		{
-			if(e.effected_widget_hint("cpu btn"))
+			if(e.user()->_code == custom_code_section_connection_recv_command)
 			{
-				if(!state())
+				int interval = 0;
+				if((sscanf((char *)e.user()->_ptr, "cpu usage start %d", &interval) == 1))
 				{
-					start_cpu_usage(1000);
+					if(!state()) start_cpu_usage(interval);
 				}
-				else
+				if(!strcmp((char *)e.user()->_ptr, "cpu usage stop"))
 				{
-					stop_cpu_usage();
-					_int->update_label("mainwindow","cpu btn label","cpu show",ui_color(255,0,255));
-					_int->update_label("mainwindow","cpu cpu","cpu:-%",ui_color(255,255,0));
-					_int->update_label("mainwindow","cpu sys","cpusys:-%",ui_color(0,255,0));
-					_int->update_label("mainwindow","cpu usr","cpuusr:-%",ui_color(0,0,255));
-					_int->update_label("mainwindow","cpu idle","cpuidle:-%",ui_color(255,0,255));
+					if(state()) stop_cpu_usage();
 				}
 			}
 		}
 		if(e.what() == platform_event_user)
 		{
-			if(e.user()->_code == custom_code_cpu_usage_notify)
+			if(e.user()->_code == custom_code_util_cpu_usage_notify)
 			{
 				struct cpu_manager_par *par = (struct cpu_manager_par *)e.user()->_ptr;
-
-				char buf[256] = {0, };
-				sprintf(buf, "cpu:%f", par->_cpu);
-				_int->update_label("mainwindow","cpu cpu",buf,ui_color(255,255,0));
-				memset(buf, 0, 256);
-				sprintf(buf, "cpusys:%f", par->_sys);
-				_int->update_label("mainwindow","cpu sys",buf,ui_color(0,255,0));
-				memset(buf, 0, 256);
-				sprintf(buf, "cpuusr:%f", par->_usr);
-				_int->update_label("mainwindow","cpu usr",buf,ui_color(0,0,255));
-				memset(buf, 0, 256);
-				sprintf(buf, "cpuidle:%f", par->_idle);
-				_int->update_label("mainwindow","cpu idle",buf,ui_color(255,0,255));
+				printf("cpu usage [cpu : %f][sys : %f][usr : %f][idle : %f]\n", par->_cpu, par->_sys, par->_usr, par->_idle);
+				delete par;
 			}
 		}
 

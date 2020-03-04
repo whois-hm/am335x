@@ -70,16 +70,7 @@ class live5rtspserver : public RTSPServer
 	};
 	virtual ClientConnection* createNewClientConnection(int clientSocket, struct sockaddr_in clientAddr)
 	{
-		if(_groupcount  < 0)
-		{
-			return new live5clientconnection(*this, clientSocket, clientAddr);
-		}
-		if(this->numClientSessions() < _groupcount)
-		{
-			return new live5clientconnection(*this, clientSocket, clientAddr);
-		}
-
-		return nullptr;
+		return new live5clientconnection(*this, clientSocket, clientAddr);
 	}
 
 	virtual ClientSession* createNewClientSession(u_int32_t sessionId)
@@ -110,8 +101,7 @@ public:
 			 reclamationSeconds),
 			 _session_name(session_name ? session_name : url),
 			 _url(url),
-			 _mode(none),
-			 _groupcount(-1)
+			 _mode(none)
 	{
 		throw_if ti;
 		ti(!_url, "can't parse url");
@@ -125,6 +115,8 @@ public:
 		select_url_local_file();
 		select_url_proxy(proxy_id, proxy_pwd);
 		ti(_mode == none, "can't selection server mode");
+
+		printf("run server : %s\n", rtspURL(lookupServerMediaSession(_session_name)));
 	}
 	virtual ~live5rtspserver()
 	{
@@ -302,6 +294,17 @@ private:
 	}
 	void new_session_proxy(char const *proxy_id, char const *proxy_pwd)
 	{
+//		  static ProxyServerMediaSession* createNew(UsageEnvironment& env,
+//							    GenericMediaServer* ourMediaServer, // Note: We can be used by just one server
+//							    char const* inputStreamURL, // the "rtsp://" URL of the stream we'll be proxying
+//							    char const* streamName = NULL,
+//							    char const* username = NULL, char const* password = NULL,
+//							    portNumBits tunnelOverHTTPPortNum = 0,
+//							        // for streaming the *proxied* (i.e., back-end) stream
+//							    int verbosityLevel = 0,
+//							    int socketNumToServer = -1,
+//							    MediaTranscodingTable* transcodingTable = NULL);
+
 	    addServerMediaSession(ProxyServerMediaSession::createNew(envir(),
 	    		  this,
 				  _url,
@@ -309,7 +312,7 @@ private:
 				  proxy_id,
 				  proxy_pwd,
 				  0,
-				  0));
+				  10));
 	}
 	void select_url_local_file()
 	{
@@ -372,6 +375,7 @@ private:
 		{
 			return ;
 		}
+		printf("make session proxy\n");
 		new_session_proxy(proxy_id, proxy_pwd);
 		_mode = proxy;
 	}
@@ -379,5 +383,4 @@ private:
 	char const *_session_name;
 	char const *_url;
 	enum operation_mode _mode;
-	int _groupcount;
 };

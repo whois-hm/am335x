@@ -62,6 +62,13 @@ public:
 				std::make_pair(avattr_type_string(key),
 				value));
 	}
+	void set(avattr_type_string &key,
+			avattr_type_string &first,
+			const avattr_type_int second,
+			const avattr_type_double third)
+	{
+		set (key.c_str(), first.c_str(), second, third);
+	}
 	void set(char const *key, char const *str, int n, double d)
 	{
 		_map.insert(

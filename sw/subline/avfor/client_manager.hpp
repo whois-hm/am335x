@@ -7,78 +7,6 @@
 
 --------------------------------------*/
 
-unsigned  indx = 0;
-class pixel_time_debug :
-		public pixel
-{
-public:
-	unsigned _createtime;
-	unsigned _main_send_time;
-	unsigned _main_recv_time;
-	unsigned _draw_start_time;
-	unsigned _draw_end_time;
-	unsigned id;
-	pixel_time_debug() : pixel(),
-			_createtime(sys_time_c()),
-			_main_send_time(0),
-			_main_recv_time(0),
-			_draw_start_time(0),
-			_draw_end_time(0),
-			id(indx++)
-	{
-
-	}
-	pixel_time_debug(const pixel_time_debug &rhs ) :
-		pixel(dynamic_cast<const pixel &>(rhs)),
-		_createtime(rhs._createtime),
-		_main_send_time(rhs._main_send_time),
-		_main_recv_time(rhs._main_recv_time),
-		_draw_start_time(rhs._draw_start_time),
-		_draw_end_time(rhs._draw_end_time),
-		id(rhs.id)
-	{
-
-	}
-
-	virtual ~pixel_time_debug()
-	{
-
-	}
-	void clip_main_send_time()
-	{
-		_main_send_time = sys_time_c();
-	}
-	void clip_main_recv_time()
-	{
-
-		_main_recv_time = sys_time_c();
-	}
-	void clip_draw_start_time()
-	{
-		_draw_start_time = sys_time_c();
-	}
-	void clip_draw_end_time()
-	{
-		_draw_end_time = sys_time_c();
-	}
-	pixel_time_debug *clone()
-	{
-		return new pixel_time_debug(*this);
-	}
-	void print_clip()
-	{
-		printf("id : %d -> (createtime ~ endtime : %u create ~ taketime : %u main_send ~ main_recv : %u draw_start ~ draw_end : %u) \n",
-				id,
-				_draw_end_time - _createtime,
-				_main_send_time - _createtime,
-				_main_recv_time - _main_send_time,
-				_draw_end_time - _draw_start_time
-				);
-
-	}
-
-};
-unsigned clock_pre = 0;
 class client_manager :
 		public manager
 {
@@ -99,13 +27,12 @@ private:
 		busyscheduler sc;
 		while(!_bstop)
 		{
-			pixel_time_debug pix;
-			int res = _play->take(dynamic_cast<pixel &>(pix));
+			pixel pix;
+			int res = _play->take((pix));
 			if(res < 0)
 			{
 				/*error or end of pixel*/
-				printf("read video err return\n");
-				notify_to_main(custom_code_end_video, nullptr);
+				notify_to_main(custom_code_section_client_end_video, nullptr);
 				break;
 			}
 			else if(res == 0)	
@@ -116,49 +43,74 @@ private:
 
 			if(pix.can_take())
 			{
-
-				pix.clip_main_send_time();
-				notify_to_main(custom_code_read_pixel, (void *)pix.clone());
+				notify_to_main(custom_code_section_client_read_pixel, (void *)pix.clone());
 				if(_play->get_master_clock() == AVMEDIA_TYPE_VIDEO)
 				{
 					double pts = pix.getpts();
 					double *ptr = (double *)malloc(sizeof(double));
 					*ptr = pts;
-					notify_to_main(custo_code_presentation_tme, (void *)ptr);
+					notify_to_main(custom_code_section_client_presentation_tme, (void *)ptr);
 				}
 			}
 		}	
 	}
-
-public:
-	client_manager(avfor_context  *avc,
-			ui *interface) :
-			manager(avc, interface),
-			_vreader(nullptr),
-			_play(nullptr),
-			_bpause(true),
-			_bstop(false)
+	bool open()
 	{
 		avattr attr;
-		if(_avc->has_video_output_context())
+		int nvideo_width = 0;
+		int nvideo_height = 0;
+		int nvideo_format = 0;
+		int naudio_channel = 0;
+		int naudio_samplingrate = 0;
+		int naudio_format = 0;
+		int naudio_samplesize = 0;
+		std::string source, id, passwd;
+
+		_avc->get(section_client, play_source, source);
+		_avc->get(section_client, authentication_id, id);
+		_avc->get(section_client, authentication_password, passwd);
+
+		_avc->get(section_client, decode_video_width, nvideo_width);
+		_avc->get(section_client, decode_video_height, nvideo_height);
+		_avc->get(section_client, decode_video_format, nvideo_format);
+
+		_avc->get(section_client, decode_audio_channel, naudio_channel);
+		_avc->get(section_client, decode_audio_samplingrate, naudio_samplingrate);
+		_avc->get(section_client, decode_audio_format, naudio_format);
+		_avc->get(section_gui, audio_samplesize, naudio_samplesize);
+
+
+		if(nvideo_width > 0 &&
+				nvideo_height > 0 &&
+				nvideo_format >= 0)
 		{
 			attr.set(avattr_key::frame_video, "frame_video", 0, 0.0);						
-			attr.set(avattr_key::width, "width", _avc->_attr.get_int(pfx_avfor_video_width,320), 0.0);
-			attr.set(avattr_key::height, "height", _avc->_attr.get_int(pfx_avfor_video_height,240), 0.0);
-			attr.set(avattr_key::pixel_format,"pix fmt", (int)_avc->_attr.get_int(pfx_avfor_video_format_type,(int)AV_PIX_FMT_RGB565),0.0);			
+			attr.set(avattr_key::width, "width", nvideo_width, 0.0);
+			attr.set(avattr_key::height, "height", nvideo_height, 0.0);
+			attr.set(avattr_key::pixel_format,"pix fmt", nvideo_format,0.0);
 		}
-		if(_avc->has_audio_output_context())
+		if(naudio_channel > 0 &&
+				naudio_samplingrate > 0 &&
+				naudio_samplesize > 0 &&
+				naudio_format >= 0)
 		{
 			attr.set(avattr_key::frame_audio, "frame_audio", 0, 0.0);						
-			attr.set(avattr_key::channel, "channel", _avc->_attr.get_int(pfx_avfor_audio_channel,1), 0.0);
-			attr.set(avattr_key::samplerate, "samplerate", _avc->_attr.get_int(pfx_avfor_audio_samplingrate,48000), 0.0);
-			attr.set(avattr_key::pcm_format, "pcm fmt", _avc->_attr.get_int(pfx_avfor_audio_format,(int)AV_SAMPLE_FMT_S16), 0.0);
+			attr.set(avattr_key::channel, "channel", naudio_channel, 0.0);
+			attr.set(avattr_key::samplerate, "samplerate", naudio_samplingrate, 0.0);
+			attr.set(avattr_key::pcm_format, "pcm fmt", naudio_format, 0.0);
 		}
-		if(attr.has_frame_any())
+		if(!attr.has_frame_any() ||
+				source.empty())
 		{
-
-			_play = new playback(attr, _avc->_attr.get_str(pfx_avfor_playlist).c_str(), 5000);
+			return false;
 		}
+
+		_play = new playback(attr,
+				source.c_str(),
+				5000,
+				!id.empty() ? id.c_str() : nullptr,
+				!passwd.empty() ? passwd.c_str() : nullptr);
+
 		if(_play->has( avattr_key::frame_video))
 		{	
 			_vreader = new std::thread([&]()->void {read_video();});
@@ -168,6 +120,7 @@ public:
 			_int->install_audio_thread(
 				[&](unsigned char *pdata,int ndata)->void
 				{
+				printf("call audio\n");
 						memset(pdata, 0, ndata);
 						if(!_bstop)
 						{
@@ -183,20 +136,29 @@ public:
 									double *ptr = (double *)malloc(sizeof(double));
 									*ptr = pts;
 
-									notify_to_main(custo_code_presentation_tme, (void *)ptr);
+									notify_to_main(custom_code_section_client_presentation_tme, (void *)ptr);
 								}
 							}
 						}
 						
 				},
-				attr.get_int(avattr_key::channel,1),
-				attr.get_int(avattr_key::samplerate,48000),
-				1024,
-				(enum AVSampleFormat)attr.get_int(avattr_key::pcm_format,(int)AV_SAMPLE_FMT_S16));
+				naudio_channel,
+				naudio_samplingrate,
+				naudio_samplesize,
+				(enum AVSampleFormat)naudio_format);
 				_int->run_audio_thread();
-
 		}		
+		return true;
 	}
+
+public:
+	client_manager(avfor_context  *avc,
+			ui *interface) :
+			manager(avc, interface),
+			_vreader(nullptr),
+			_play(nullptr),
+			_bpause(true),
+			_bstop(false) { }
 	
 	~client_manager()
 	{
@@ -220,10 +182,10 @@ public:
 	}
 	virtual bool ready()
 	{
-		if(_play)
+		if(open())
 		{
 			duration_div *d= new duration_div(_play->duration());
-			notify_to_main(custom_code_ready_to_play, (void *)d);
+			notify_to_main(custom_code_section_client_ready_to_play, (void *)d);
 			return true;
 		}
 		return false;
@@ -231,82 +193,51 @@ public:
 
 	virtual void operator()(ui_event &e)
 	{
-		if(e.what() == platform_event_touch &&
-				e.touch()->press <= 0)
-		{
-			if(e.effected_widget_hint("close btn")) 		_int->set_loopflag(false);
-			else if(e.effected_widget_hint("left btn")) 	_play->seek(-3.0);
-			else if(e.effected_widget_hint("right btn")) 	_play->seek(3.0);
-			else if(e.effected_widget_hint("play btn"))
-			{
-				if(_bpause)
-				{
-					_play->resume();
-					_bpause = false;
-				}
-				else
-				{
-					_play->pause();
-					_bpause = true;
-				}
-			}
-		}
 		if(e.what() == platform_event_user)
 		{
-			if(e.user()->_code == custom_code_end_video)
+			if(e.user()->_code == custom_code_section_client_end_video)
 			{
-				_int->update_label("mainwindow","title","play:end",ui_color(255,255,255));
-				_int->update_label("mainwindow","time lable pts","pts:00.00.00",ui_color(255,255,0));
-				_int->update_label("mainwindow","time lable duration","duration:00.00.00",ui_color(0,255,255));
-				_int->update_pannel("mainwindow","display area",ui_color(100, 100, 100));
+				_int->update_pannel("mainwindow","display area",ui_color(0, 0, 0));
 			}
-			if(e.user()->_code == custom_code_read_pixel)
+			if(e.user()->_code == custom_code_section_client_read_pixel)
 			{
+				pixel *pix = (pixel *)(e.user()->_ptr);
 
-				 pixel_time_debug *pix = (pixel_time_debug *)(e.user()->_ptr);
-				pix->clip_main_recv_time();
-				pix->clip_draw_start_time();
-				pixel *a = (pixel *)pix;
-
-				_int->update_pannel("mainwindow","display area",a, false);
-				pix->clip_draw_end_time();
-				pix->print_clip();
-				delete pix;
-
-//				pixel *pix = (pixel *)(e.user()->_ptr);
-//				_int->update_pannel("mainwindow","display area",pix, true);
+				_int->update_pannel("mainwindow","display area",pix, true/*delete auto*/);
 			}
-			if(e.user()->_code == custo_code_presentation_tme)
+			if(e.user()->_code == custom_code_section_client_presentation_tme)
 			{
 				double *v = (double *)(e.user()->_ptr);
-				double pts = *v;
-				int h, m,s;
-				unsigned ms_total = pts * 1000;
-				s = ms_total / 1000;
-				m = s / 60;
-				h = m / 60;
-				s = s % 60;
-				m = m % 60;
-				char buf[256] = {0, };
-				sprintf(buf, "pts:%02d.%02d.%02d", h, m, s);
-				_int->update_label("mainwindow","time lable pts",buf,ui_color(255,255,0));
 				free(v);
 			}
-			if(e.user()->_code == custom_code_ready_to_play)
+			if(e.user()->_code == custom_code_section_client_ready_to_play)
 			{
 				duration_div *v = (duration_div *)(e.user()->_ptr);
-				int h = std::get<0>(*v);
-				int m = std::get<1>(*v);
-				int s = std::get<2>(*v);
-				char buf[256] = {0, };
-				sprintf(buf, "duration:%02d.%02d.%02d", h, m, s);
-				_int->update_label("mainwindow","title","play:ready to play",ui_color(255,255,255));
-				_int->update_label("mainwindow","time lable duration",buf,ui_color(0,255,255));
 				delete v;
+			}
+			if(e.user()->_code == custom_code_section_connection_recv_command)
+			{
+				int seekvalue = 0;
+
+				if(!strcmp("pause", (char *)e.user()->_ptr))
+				{
+					_play->pause();
+				}
+				if(!strcmp("resume", (char *)e.user()->_ptr))
+				{
+					_play->resume();
+				}
+				if(!strcmp("play", (char *)e.user()->_ptr))
+				{
+					_play->play();
+				}
+				if(1==sscanf((char *)e.user()->_ptr, "seek %d", &seekvalue))
+				{
+					_play->seek((double)seekvalue);
+				}
 
 			}
 		}
-
 	}
 };
 

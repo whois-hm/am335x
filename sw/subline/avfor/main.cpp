@@ -2,10 +2,6 @@
 #include "context.hpp"
 
 
-
-
-
-
 class avfor
 {
 	avfor_context  *_avc;
@@ -22,175 +18,101 @@ public:
 	avfor(avfor &&rhs) = delete;
 	avfor(const avfor &rhs) = delete;
 	avfor(avfor &rhs) = delete;
+	ui * load_gui_if_set()
+	{
+		ui *interface = nullptr;
+		throw_if ti;
+		triple_int display_fmt;
+		int nvideo_width = 0;
+		int nvideo_height = 0;
+		int nvideo_format = 0;
+		int naudio_channel = 0;
+		int naudio_samplingrate = 0;
+		int naudio_format = 0;
+		int naudio_samplesize = 0;
+		bool has_v = false;
+		bool has_a = false;
+		if(!_avc->has_section(section_gui))
+		{
+			return new ui_platform_fake("fake ui");
+		}
+		interface = new ui_platform("user ui");
 
+		_avc->get(section_gui, video_width, nvideo_width);
+		_avc->get(section_gui, video_height, nvideo_height);
+		_avc->get(section_gui, video_format, nvideo_format);
+
+		_avc->get(section_gui, audio_channel, naudio_channel);
+		_avc->get(section_gui, audio_samplingrate, naudio_samplingrate);
+		_avc->get(section_gui, audio_format, naudio_format);
+		_avc->get(section_gui, audio_samplesize, naudio_samplesize);
+
+		/*
+		 	 using display
+		 */
+
+		if(nvideo_width > 0 &&
+				nvideo_height > 0 &&
+				nvideo_format >= 0)
+		{
+			display_fmt = interface->display_available();
+			/*
+			 	 this mean that use section and parameter all vaild
+			 	 but system display not supported 'throw!'
+			 */
+			ti(nvideo_width > std::get<0>(display_fmt) ||
+					nvideo_height > std::get<1>(display_fmt) ||
+					nvideo_format != std::get<2>(display_fmt),
+					"can't open display, parameter has invalid from supported display");
+
+			ti(!interface->make_window("mainwindow",ui_rect(3000,
+					0,
+					nvideo_width,
+					nvideo_height)),
+					"can't make window ");
+
+			ti(!interface->make_pannel("mainwindow",
+				"display area",
+				ui_color(0, 0, 0),
+				ui_rect(0, 0,
+						nvideo_width,
+						nvideo_height)));
+			has_v = true;
+		}
+		/*
+		 	 using audio
+		 */
+		if(naudio_channel > 0 &&
+				naudio_samplingrate > 0 &&
+				naudio_samplesize > 0 &&
+				naudio_format >= 0)
+		{
+			/*open test*/
+			ti(!interface->install_audio_thread(nullptr,
+					naudio_channel,
+					naudio_samplingrate,
+					naudio_samplesize,
+					(enum AVSampleFormat)naudio_format),
+					"can't open audio system") ;
+
+			interface->uninstall_audio_thread();
+			has_a = true;
+		}
+		ti(!has_v && !has_a, "can't open gui system, your parameter has invalid");
+		return interface;
+	}
 
 	avfor(int argc, char **argv) :
 		_avc(nullptr),
 		_int(nullptr)
 	{
-		triple_int display_fmt;
-		int title_min_h = -1;
-		int title_min_w = -1;
-		int btn_min_w = -1;
-		int btn_min_h = -1;
-		int time_min_h = -1;
-		int time_min_w = -1;
-		int cpu_usage_min_w = -1;
-		int cpu_usage_min_h = -1;
-		int vwidth = -1;
-		int vheight = -1;
-		int cpu_vwidth = -1;
-		int cpu_vheight = -1;
-		enum AVPixelFormat vfmt = AV_PIX_FMT_NONE;
-		do
-		{
-			printf("welcome avfor main\n");
-			livemedia_pp::ref();
-			throw_register_sys_except();
-
-			_avc = new  avfor_context();
-			if(!_avc->parse_par(argc,argv))
-			{
-				printf("can't parse parameters\n");
-				break;
-			}
-			_int = new ui_platform("user interface");
-			display_fmt = _int->display_available();
-			if(std::get<0>(display_fmt) <= 0 &&
-					std::get<1>(display_fmt) <= 0 &&
-					std::get<2>(display_fmt) < 0)
-			{
-				printf("can't userinterface load display has not available\n");
-				break;
-			}
-			/*
-				draw enable always, if possible use platform display
-			*/
-			title_min_h = 30;
-			title_min_w = 10;
-			btn_min_w = 20;
-			btn_min_h = 20;
-			time_min_h = 10;
-			time_min_w = 10;
-			cpu_usage_min_w = 10;
-			cpu_usage_min_h = 10;
-			vwidth = _avc->_attr.get_int(pfx_avfor_video_width,320);
-			vheight = _avc->_attr.get_int(pfx_avfor_video_height,240);
-			cpu_vwidth = vwidth / 2;
-			cpu_vheight = vheight;
-			vfmt = (enum AVPixelFormat)_avc->_attr.get_int(pfx_avfor_video_format_type,(int)AV_PIX_FMT_RGB565);
-			if(vwidth + cpu_vwidth > std::min(_avc->_attr.get_int(pfx_avfor_frame_width), std::get<0>(display_fmt))||
-					vheight + (time_min_h * 5) + title_min_h  + btn_min_h> std::min(_avc->_attr.get_int(pfx_avfor_frame_height), std::get<1>(display_fmt)) ||
-					vfmt != std::get<2>(display_fmt))
-			{
-				printf("can't draw dispay invalid size parameters\n");
-				break;
-			}
-
-			title_min_h = 30;
-			time_min_h 	= (std::min(_avc->_attr.get_int(pfx_avfor_frame_height), std::get<1>(display_fmt)) - title_min_h - (vheight) - (btn_min_h)) / 5;/*pts / duration / cpu / syscpu/usrcpu*/
-			btn_min_h 	= std::min(_avc->_attr.get_int(pfx_avfor_frame_height), std::get<1>(display_fmt)) - title_min_h  - vheight - (time_min_h * 5);
-			cpu_vheight = vheight;
-			cpu_usage_min_h = time_min_h;
-
-			title_min_w = std::min(_avc->_attr.get_int(pfx_avfor_frame_width), std::get<0>(display_fmt));
-			btn_min_w = std::min(_avc->_attr.get_int(pfx_avfor_frame_width), std::get<0>(display_fmt)) / 5;/*left play right cpu close*/
-			time_min_w = vwidth;
-			cpu_usage_min_w = std::min(_avc->_attr.get_int(pfx_avfor_frame_width), std::get<0>(display_fmt)) - vwidth;
-			cpu_vwidth = std::min(_avc->_attr.get_int(pfx_avfor_frame_width), std::get<0>(display_fmt)) - vwidth;
-
-			_int->make_window("mainwindow",ui_rect(2000,
-					0,
-					320,
-					240));
-
-				/*draw top*/
-				_int->make_label("mainwindow",
-					"title",
-					"play:pause",
-					ui_color(255,255,255),
-					ui_rect(0, 0, title_min_w, title_min_h));
-
-				/*draw center*/
-				_int->make_pannel("mainwindow",
-					"display area",
-					ui_color(100, 100, 100),
-					ui_rect(0, title_min_h, vwidth, vheight));
-
-				_int->make_pannel("mainwindow",
-					"cpu display area",
-					ui_color(200, 200, 200),
-					ui_rect(vwidth, title_min_h, cpu_vwidth, cpu_vheight));
-				/*draw bottom*/
-				_int->make_label("mainwindow",
-					"time lable pts",
-					"pts:00.00.00",
-					ui_color(255,255,0),
-					ui_rect(0, vheight + title_min_h , time_min_w, time_min_h));
-				_int->make_label("mainwindow",
-					"time lable duration",
-					"duration:00.00.00",
-					ui_color(0,255,255),
-					ui_rect(0, vheight + time_min_h + title_min_h, time_min_w, time_min_h));
-
-
-				_int->make_label("mainwindow",
-					"cpu cpu",
-					"cpu:-%",
-					ui_color(255,255,0),
-					ui_rect(vwidth, cpu_vheight + title_min_h , cpu_usage_min_w, cpu_usage_min_h));
-
-				_int->make_label("mainwindow",
-					"cpu sys",
-					"cpusys:-%",
-					ui_color(0,255,0),
-					ui_rect(vwidth, cpu_vheight + title_min_h + cpu_usage_min_h , cpu_usage_min_w, cpu_usage_min_h));
-
-				_int->make_label("mainwindow",
-					"cpu usr",
-					"cpuusr:-%",
-					ui_color(0,0,255),
-					ui_rect(vwidth, cpu_vheight + title_min_h + cpu_usage_min_h + cpu_usage_min_h, cpu_usage_min_w, cpu_usage_min_h));
-				_int->make_label("mainwindow",
-					"cpu idle",
-					"cpuidle:-%",
-					ui_color(255,0,255),
-					ui_rect(vwidth, cpu_vheight + title_min_h + cpu_usage_min_h + cpu_usage_min_h + cpu_usage_min_h, cpu_usage_min_w, cpu_usage_min_h));
-				/*
-					buttons
-				*/
-				_int->make_pannel("mainwindow",
-					"left btn",
-					ui_color(255, 0, 0),
-					ui_rect(btn_min_w * 0, title_min_h + time_min_h *5 + vheight, btn_min_w, btn_min_h));
-
-				_int->make_pannel("mainwindow",
-					"play btn",
-					ui_color(255, 255, 0),
-					ui_rect(btn_min_w * 1 , title_min_h + time_min_h *5 + vheight, btn_min_w, btn_min_h));
-
-				_int->make_pannel("mainwindow",
-					"right btn",
-					ui_color(0, 0, 255),
-					ui_rect(btn_min_w * 2 , title_min_h + time_min_h *5 + vheight, btn_min_w, btn_min_h));
-				_int->make_pannel("mainwindow",
-					"cpu btn",
-					ui_color(255, 0, 255),
-					ui_rect(btn_min_w * 3 , title_min_h + time_min_h *5 + vheight, btn_min_w, btn_min_h));
-				_int->make_pannel("mainwindow",
-					"close btn",
-					ui_color(100, 100, 255),
-					ui_rect(btn_min_w * 4 , title_min_h + time_min_h *5 + vheight, btn_min_w, btn_min_h));
-				_int->install_event_filter(std::bind(&avfor::handler,
-						this,
-						std::placeholders::_1));
-
-				return;
-		}while(0);
-		/*
-		 	 can't run
-		 */
-		exit(0);
+		livemedia_pp::ref();
+		throw_register_sys_except();
+		_avc = new avfor_context(argc, argv);
+		_int = load_gui_if_set();
+		_int->install_event_filter(std::bind(&avfor::handler,
+				this,
+				std::placeholders::_1));
 	}
 	~avfor()
 	{
@@ -215,7 +137,7 @@ public:
 		/* on the client */
 		do
 		{
-			if(_avc->_attr.get_str(pfx_avfor_runtype) == "client")
+			if(_avc->has_section(section_client))
 			{
 				load_manager<client_manager>(res);
 			}
@@ -227,6 +149,13 @@ public:
 			}
 			/* last manager load */
 			load_manager<cpu_manager>(res);
+			/*
+			 	 warnning
+			 	 connection_manager event parameter has malloc data.
+			 	 this malloc data self free in 'connection_manager'
+			 	 therefor the data should be process last eventhandler
+			 */
+			load_manager<connection_manager>(res);
 
 			for(auto &it : _managers)
 			{
@@ -250,35 +179,31 @@ public:
 	*/
 	void handler(ui_event &e)
 	{
-
 		do
 		{
-			if(e.what() == platform_event_error)
-			{
-
-				break;
-			}
-			if(e.what() == platform_event_touch)
-			{
-				if(e.effected_widget_hint("close btn"))
-				{
-					break;
-				}
-			}
-
 			for(auto &it : _managers)
 			{
 				/*throw to manager*/
 				(*it)(e);
 			}
+			if(e.what() == platform_event_error)
+			{
+				break;
+			}
 
+			if(e.what() == platform_event_user)
+			{
+				if(e.user()->_code == custom_code_section_connection_close)
+				{
+					break;
+				}
+			}
 			return;
 		}while(0);
 
 		_int->set_loopflag(false);
 	}
 };
-
 
 
 
