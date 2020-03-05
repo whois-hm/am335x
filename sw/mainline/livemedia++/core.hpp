@@ -91,3 +91,6 @@ extern "C"
 #include "playback.hpp"
 #include "ui.hpp"
 
+#if defined _platform_linux
+#include "uvc.hpp"
+#endif
