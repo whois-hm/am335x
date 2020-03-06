@@ -7,19 +7,20 @@ private:
 	const base_deallocator _deallocator;
 	uint8_t *_data_ptr;
 	int _data_size;
-        double _pts;/*set presentation time if known*/
+   double _pts;/*set presentation time if known*/
+   enum AVMediaType _type;
 public :
-	raw_media_data() :
+	raw_media_data(enum AVMediaType t) :
 		_allocator(__base__malloc__),
 		_deallocator(__base__free__),
 		_data_ptr(nullptr),
-                _data_size(0),_pts(0.0) { }
+                _data_size(0),_pts(0.0), _type(t) { }
 	raw_media_data
 	(const raw_media_data &rhs) :
 		_allocator(__base__malloc__),
 		_deallocator(__base__free__),
 		_data_ptr(nullptr),
-                _data_size(0),_pts(0.0)
+                _data_size(0),_pts(0.0),_type(rhs._type)
 	{
 		if(rhs._data_ptr &&
 				rhs._data_size > 0)
@@ -109,7 +110,10 @@ public :
 		int minsize = std::min(_data_size, (int)size);
 		memcpy(ptr, _data_ptr,  minsize);
 	}
-
+	enum AVMediaType type()
+	{
+		return _type;
+	}
 	raw_media_data *clone()
 	{
 		return new raw_media_data(*this);
@@ -147,7 +151,7 @@ public:
 	/*
 	 	 because reqeust size always > 0
 	 */
-	pcm() : raw_media_data(),
+	pcm() : raw_media_data(AVMEDIA_TYPE_AUDIO),
 	_val(std::make_tuple(0, 0, 0, AV_SAMPLE_FMT_NONE)) { }
 	pcm(const pcm &rhs) :
 		raw_media_data (dynamic_cast<const raw_media_data &>(rhs)),
@@ -178,6 +182,7 @@ public:
 	{
 		_val = val;
 	}
+
 	int channel() const
 	{ return std::get<0>(_val); }
 	int samplingrate() const
@@ -211,7 +216,7 @@ class pixel :
 private:
 	std::tuple<int, int, enum AVPixelFormat> _val;
 public:
-	pixel() : raw_media_data(),
+	pixel() : raw_media_data(AVMEDIA_TYPE_VIDEO),
 			_val(std::make_tuple(0, 0, AV_PIX_FMT_NONE)){}
 	pixel(const pixel &rhs) :
 		raw_media_data(dynamic_cast<const raw_media_data &>(rhs)),

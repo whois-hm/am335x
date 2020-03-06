@@ -45,7 +45,8 @@ public:
 
 		_frame = av_frame_alloc();
 		av_frame_ref(_frame, &const_cast<AVFrame &>(frm));
-		return *this;	}
+		return *this;
+	}
 	/*
 	 	 	 wanning! return direct pointer
 	 */

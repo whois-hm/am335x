@@ -1,5 +1,6 @@
 #pragma once
-
+#if defined _platform_linux
+#define have_uvc
 class uvc
 {
 private:
@@ -293,6 +294,14 @@ fail:
 		type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		ioctl(_fd, VIDIOC_STREAMOFF, &type);
 	}
+	void wakeup_pipe()
+	{
+		if(_pipe[0] > 0)
+		{
+			char a = 1;
+			write(_pipe[0], &a, 1);
+		}
+	}
 public:
 	uvc(char const *dev) :
 		_dev(dev),
@@ -311,11 +320,15 @@ public:
 		}
 	virtual ~uvc()
 	{
-		if(_pipe[0] > 0)
-		{
-			char a = 1;
-			write(_pipe[0], &a, 1);
-		}
+		end();
+		if(_pipe[0] > 0)close(_pipe[0]);
+		if(_pipe[1] > 0)close(_pipe[1]);
+		_pipe[0] = _pipe[1] = -1;
+	}
+	void end()
+	{
+		stop();
+		wakeup_pipe();
 		if(_fd > 0)
 		{
 			close(_fd);
@@ -335,7 +348,7 @@ public:
 		return startpoll(timeout);
 	}
 
-	int get(pixelframe &f)
+	int get(avframe_class &f)
 	{
 		f.unref();
 		int res = -1;
@@ -396,3 +409,4 @@ private:
 	int _pipe[2];
 	std::vector<std::pair<void *, unsigned>> _videoframes;
 };
+#endif

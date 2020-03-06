@@ -88,9 +88,11 @@ extern "C"
 #include "playback_inst.hpp"
 #include "local_playback.hpp"
 #include "rtsp_playback.hpp"
+#include "uvc.hpp"
+#if defined have_uvc
+#include "uvc_playback.hpp"
+#endif
 #include "playback.hpp"
 #include "ui.hpp"
 
-#if defined _platform_linux
-#include "uvc.hpp"
-#endif
+

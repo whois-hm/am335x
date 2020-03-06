@@ -1,9 +1,4 @@
 #pragma once
-
-
-
-
-
 class playback
 {
 protected:
@@ -26,6 +21,20 @@ public:
 			inst = new local_playback(attr, name);
 		}
 
+		if(!inst)
+		{
+#if defined have_uvc
+			if(strlen (name) > 4 &&
+					name[0] == '/' &&
+					name[1] == 'd' &&
+					name[2] == 'e' &&
+					name[3] == 'v')
+			{
+				inst = new uvc_playback(attr, name);
+			}
+#endif
+
+		}
 		if(!inst)
 		{
 			inst = new rtsp_playback(attr, name, time, id, pwd);
