@@ -5,7 +5,31 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <asm/io.h>
+#include <linux/hrtimer.h>
+#include <linux/time.h>
+#include <linux/timer.h>
+#include <linux/fcntl.h>
+#include <linux/types.h>
+#include <linux/errno.h>
+#include <linux/ktime.h>
 #include "am335x_gpio.h"
+
+
+
+
+static struct hrtimer hr_ta;
+unsigned pwd_period = 1000;//us(1khz)
+unsigned duty_cycle = 0;
+unsigned fall_cycle = 0;
+
+enum edge
+{
+	unknown_endge,
+	rising_edge,
+	fallng_edge
+};
+enum edge _pwm_edge = unknown_endge;
+
 
 const char  *char_dev_name = "am335x_gpio";
 int char_dev_name_major = 125;
@@ -96,6 +120,7 @@ struct
 		{NULL, -1}, 
 };
 
+
 static void set_output_register(HWREG reg, int pin, int high);
 static void get_ouput_register(struct am335x_gpio_request *r, int i);
 
@@ -129,6 +154,7 @@ ssize_t am335x_gpio_driver_read(struct file *filp, char *buf, size_t count, loff
 	}
 	return count;
 
+
 }
 
 ssize_t am335x_gpio_driver_write(struct file *filp, const char *buf, size_t count, loff_t *f_pos)
@@ -155,17 +181,114 @@ ssize_t am335x_gpio_driver_write(struct file *filp, const char *buf, size_t coun
 	}
 	return count;
 }
+static enum hrtimer_restart pwm_ctl(struct hrtimer *timer)
+{
+	ktime_t _ktime, _cktime;
+
+	
+	if(_pwm_edge == unknown_endge || 
+		_pwm_edge == fallng_edge)
+	{
+		if(duty_cycle > 0)
+		{
+			set_output_register(gpio1_register_ptr, 12, 0);
+		}		
+		_cktime = ktime_get();
+		_ktime = ktime_set(0, duty_cycle * 1000);	
+		hrtimer_forward(&hr_ta, _cktime, _ktime);
+		_pwm_edge = rising_edge;
+	}
+	if(_pwm_edge == rising_edge)
+	{
+		if(fall_cycle > 0)
+		{
+ 			set_output_register(gpio1_register_ptr, 12, 1);
+		}
+		_cktime = ktime_get();
+		_ktime = ktime_set(0, fall_cycle * 1000);	
+		hrtimer_forward(&hr_ta, _cktime, _ktime);
+		_pwm_edge = fallng_edge;
+	}
+	
+	return HRTIMER_RESTART;
+}
+
+long am335x_gpio_driver_ioctl( struct file *f, unsigned int a, unsigned long b)
+{
+	ktime_t _ktime;
+	int param_size;
+	AM335X_GPIO_IOCTL_RQ_PWM_PAR par;
+
+	/*
+		soft irq test code;
+	*/
+	return -EINVAL;
+	
+	if(_IOC_TYPE(a) != AM335X_GPIO_IOCTL_MAGIC)
+		return -EINVAL;
+	if(_IOC_NR(a) >= AM335X_GPIO_IOCTL_REQ_MAX)
+		return -EINVAL;
+
+	
+	param_size =  _IOC_SIZE(a);
+	
+	if(param_size != sizeof(AM335X_GPIO_IOCTL_RQ_PWM_PAR))
+		return -EINVAL;
+	if(!(_IOC_DIR(a) & _IOC_READ))
+		return -EINVAL;
+	if(unlikely(!access_ok(VERIFY_WRITE, (void *)b, param_size)))
+		return -EINVAL;
+
+	if(copy_from_user((void *)&par, (void *)b, param_size) != 0)
+	{
+		return -EFAULT;
+	}
+	if(par > 100 || 
+		par < 0)
+	{
+		return -EINVAL;
+	}
+
+
+	duty_cycle = (unsigned) ((par * pwd_period) / 100);
+	fall_cycle = pwd_period - duty_cycle;
+	_pwm_edge = unknown_endge;
+	printk(KERN_INFO "par : %d duty : %d fall : %d", par, duty_cycle, fall_cycle);
+	hrtimer_cancel(&hr_ta);
+	
+	_ktime = ktime_set(0, 0);
+	hrtimer_start(&hr_ta, _ktime, HRTIMER_MODE_REL);
+
+	
+	return 0;
+}
+
+
 
 static void set_output_register(HWREG reg, int pin, int high)
 {
-	printk(KERN_INFO "set_register : %dpin %s\n", pin, high ? "high" : "low");
-
+	//printk(KERN_INFO "set_register : %dpin %s\n", pin, high ? "high" : "low");
 	if(high)
 	{
-		*((unsigned  *)(reg + GPIO_SET_REGISTER)) |= (1 << pin);
-		return;
+		//register_address = (unsigned *)reg + GPIO_CLEAR_REGISTER;
+		//(*register_address) &= ~(1 << pin);		
+		
+//		register_address = (unsigned *)reg + GPIO_SET_REGISTER;
+		//(*register_address) |= (1 << pin);
+
+				 (*(unsigned *)(reg + GPIO_SET_REGISTER)) = (1 << pin);
 	}
-	*((unsigned  *)(reg + GPIO_CLEAR_REGISTER)) |= (1 << pin);	
+	else
+	{
+		//register_address = ( unsigned *)reg + GPIO_SET_REGISTER;
+		//(*register_address) &= ~(1 << pin);
+		
+	//	register_address = ( unsigned *)reg + GPIO_CLEAR_REGISTER;
+//		(*register_address) |= (1 << pin);
+		 (*(unsigned *)(reg + GPIO_CLEAR_REGISTER)) = (1 << pin);
+		
+	}
+
 }
 static void get_ouput_register(struct am335x_gpio_request *r, int i)
 {
@@ -297,6 +420,7 @@ static struct file_operations fops =
 {
 	.owner = THIS_MODULE,
 	.open= am335x_gpio_driver_open,
+	.unlocked_ioctl= am335x_gpio_driver_ioctl,
 	.release= am335x_gpio_driver_close,
 	.read= am335x_gpio_driver_read,
 	.write= am335x_gpio_driver_write
@@ -307,7 +431,7 @@ static void am335x_gpio_exit( void )
 	clock_enable_cleanup();
 	control_module_cleanup();
 	gpio_register_cleanup();
-	
+	hrtimer_cancel(&hr_ta);
 	unregister_chrdev(char_dev_name_major, char_dev_name);
 
 	printk(KERN_INFO "unload module gpio\n");
@@ -329,6 +453,9 @@ static int am335x_gpio_init( void )
 	gpio_register_setup();
 	gpio_register_set_oe();
 	register_map_setup();
+
+	hrtimer_init(&hr_ta, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hr_ta.function = &pwm_ctl;
 
 	return 0;
 }

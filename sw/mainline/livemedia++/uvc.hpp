@@ -46,7 +46,7 @@ private:
 			req.memory = V4L2_MEMORY_MMAP;
 
 
-			fd = open(_dev, O_RDWR | O_NONBLOCK , 777);
+			fd = open(_dev, O_RDWR | O_NONBLOCK , 0);
 			if(fd < 0)
 			{
 				printf("device : %s  open fail\n", _dev);
@@ -69,11 +69,31 @@ private:
 				printf("can't find video capture\n");
 				goto fail;
 			}
+
+			struct v4l2_crop crop;
+			struct v4l2_cropcap cropcap;
+			memset(&cropcap, 0, sizeof(struct v4l2_cropcap));
+			memset(&crop, 0, sizeof(struct v4l2_crop));
+
+			cropcap.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			if(xioctl(fd, VIDIOC_CROPCAP, &cropcap))
+			{
+				crop.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+				crop.c = cropcap.defrect;
+				xioctl(fd, VIDIOC_S_CROP, &crop);
+
+			}
+
+
+			
 			if(xioctl(fd, VIDIOC_G_FMT, &format))
 			{
 				printf("can't get format\n");
 				goto fail;
 			}
+
+			xioctl(fd, VIDIOC_S_FMT, &format);
+			
 			if(format.fmt.pix.pixelformat != _support_fourcc)
 			{
 				printf("no support video format...\n");
@@ -130,18 +150,14 @@ private:
 					}
 					_videoframes.push_back(std::make_pair(ptr, buf.length));
 				}
-				for(int i = 0; i < req.count; i++)
-				{
-					memset(&buf, 0, sizeof(struct v4l2_buffer));
-					buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-					buf.memory = V4L2_MEMORY_MMAP;
-					buf.index = i;
-					if(xioctl(fd, VIDIOC_QBUF, &buf))
+				
 					{
-						printf("can't qbuf\n");
-						goto fail;
+											enum v4l2_buf_type type;
+					type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+					ioctl(_fd, VIDIOC_STREAMOFF, &type);
 					}
-				}
+
+
 			}
 			/**
 			 	 mode 1 mean that mode rw mode
@@ -162,6 +178,7 @@ private:
 			_byteper_line = format.fmt.pix.bytesperline;
 			_byteper_frame = format.fmt.pix.sizeimage;
 			_video_buffer_count = _videoframes.size();
+			printf("uvc open %s %d (%d x %d)\n", _dev, fd, _video_width, _video_height);
 			return fd;
 		}while(0);
 
@@ -190,116 +207,91 @@ fail:
 				((unsigned)(d) << 24));
 	}
 
-	int read_io(void *&f)
-	{
-		f = nullptr;
-		if(_video_capture_mode != 0)
-		{
-			return 0;
-		}
-		struct v4l2_buffer buf;
-		memset(&buf, 0, sizeof(struct v4l2_buffer));
-		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		buf.memory = V4L2_MEMORY_MMAP;
-		if(xioctl(_fd, VIDIOC_DQBUF, &buf))
-		{
-			return -1;
-		}
-		if(xioctl(_fd, VIDIOC_QBUF, &buf))
-		{
-			return -1;
-		}
-		if(buf.index > _video_buffer_count)
-		{
-			return -1;
-		}
 
-		f = _videoframes.at(buf.index).first;
-		return _videoframes.at(buf.index).second;
-	}
-	int read_rw(void *&f)
-	{
-		f = nullptr;
-		if(_video_capture_mode != 1)
-		{
-			return 0;
-		}
-		_dword readbyte = 0;
-		size_t remainframe = 0;
-		char *pbuff = NULL;
-
-		remainframe = _videoframes.at(0).second;
-		pbuff = (char *)_videoframes.at(0).first;
-		do
-		{
-			readbyte = read(_fd, (pbuff + (_videoframes.at(0).second - remainframe)), remainframe);
-			if(readbyte < 0)
-			{
-				switch(errno)
-				{
-				case EIO:
-				case EAGAIN:
-					continue;
-				default:
-					return -1;
-				}
-			}
-			remainframe -= readbyte;
-		}while(remainframe > 0);
-		f = pbuff;
-		return _videoframes.at(0).second;
-	}
 	int startpoll(int timeout)
 	{
 		/*
 		 	 wait signal until dirver v4l2 return
 		 */
+
 		struct pollfd fds[2];
 		memset(fds, 0, sizeof(struct pollfd) * 2);
 		fds[0].fd = _fd;
-		fds[1].fd = _pipe[1];
-		fds[0].events = fds[1].events = POLL_IN | POLL_PRI | POLL_ERR;
+		fds[1].fd = _pipe[0];
+		fds[0].events = POLLIN | POLLPRI | POLLRDNORM| POLLERR | POLLHUP | POLLNVAL;
+		fds[1].events = POLLIN | POLLPRI | POLLERR | POLLHUP | POLLNVAL;
 
 		int res = poll(fds, 2, timeout);
 		if(res > 0)
 		{
-			if(fds[1].revents & (POLL_IN | POLL_PRI | POLL_ERR))
+
+			if(fds[1].revents & (POLLIN | POLLPRI | POLLERR | POLLHUP | POLLNVAL))
 			{
+
 				res = -1;
 			}
-			if(fds[0].revents & POLL_ERR)
+			else if(fds[0].revents & (POLLERR | POLLHUP | POLLNVAL))
 			{
+
 				res = -1;
 			}
-			if(fds[0].revents & (POLL_IN | POLL_PRI))
+			else if(fds[0].revents & (POLLIN | POLLPRI | POLLRDNORM))
 			{
 				res = 1;
 			}
 		}
+		
 		return res;
 	}
 	bool streamon()
 	{
+		struct v4l2_buffer buf;
+		
+		if(_ing)
+		{
+			return true;
+		}
+		memset(&buf, 0, sizeof(struct v4l2_buffer));
+		for(int i = 0; i < _video_buffer_count; i++)
+		{
+			memset(&buf, 0, sizeof(struct v4l2_buffer));
+			buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			buf.memory = V4L2_MEMORY_MMAP;
+			buf.index = i;
+			if(xioctl(_fd, VIDIOC_QBUF, &buf))
+			{
+				return false;
+			}
+		}
+
 		enum v4l2_buf_type type;
 		type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		if(xioctl(_fd, VIDIOC_STREAMON, &type))
 		{
 			return false;
 		}
+		_ing = true;
 		return true;
 	}
 	void streamoff()
 	{
-		enum v4l2_buf_type type;
-		type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		ioctl(_fd, VIDIOC_STREAMOFF, &type);
+	
+		if(_ing)
+		{
+			enum v4l2_buf_type type;
+			type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			ioctl(_fd, VIDIOC_STREAMOFF, &type);
+		}
+
+		_ing = false;
+		
 	}
 	void wakeup_pipe()
 	{
-		if(_pipe[0] > 0)
+		if(_pipe[1] > 0)
 		{
 			char a = 1;
-			write(_pipe[0], &a, 1);
+			write(_pipe[1], &a, 1);
 		}
 	}
 public:
@@ -313,8 +305,10 @@ public:
 		_byteper_line(-1),
 		_byteper_frame(-1),
 		_video_buffer_count(-1),
-		_fd(uvc_open_test())
+		_fd(-1),
+		_ing(false)
 		{
+			_fd = uvc_open_test();
 			_pipe[0] = _pipe[1] = -1;
 			throw_if ti; ti(_fd < 0, "can't open device");
 		}
@@ -345,41 +339,107 @@ public:
 	}
 	int waitframe(int timeout)
 	{
-		return startpoll(timeout);
+		int res = -1;
+		if(start())
+		{
+			res = startpoll(timeout);
+		}
+		return res;
 	}
+
 
 	int get(avframe_class &f)
 	{
-		f.unref();
-		int res = -1;
-		void *ptr = nullptr;
-
-		res = read_io(ptr);
-		if(res == 0)
+		
+		if(!_ing)
 		{
-			res = read_rw(ptr);
+			return -1;
 		}
-		if(res > 0)
-		{
-			/*
-			 	 frame obtain get driver and put the 'f'
-			 	 with base value, other pts ... etc is not fill
 
-			 */
+		int res = -1;
+
+		if(_video_capture_mode == 0)
+		{
+			f.unref();
+			struct v4l2_buffer buf;
+			memset(&buf, 0, sizeof(struct v4l2_buffer));
+			buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			buf.memory = V4L2_MEMORY_MMAP;
+			if(xioctl(_fd, VIDIOC_DQBUF, &buf))
+			{
+				return -1;
+			}
+
+			if(buf.index > _video_buffer_count)
+			{
+				return -1;
+			}
 			f.raw()->width = _video_width;
 			f.raw()->height = _video_height;
 			f.raw()->format = _videoformat;
+
+
 			av_frame_get_buffer(f.raw(), 0);
 
 			av_image_fill_arrays(f.raw()->data,
 					f.raw()->linesize,
-					(uint8_t *)ptr,
+					(uint8_t *)_videoframes.at(buf.index).first,
 					_videoformat,
 					_video_width,
 					_video_height,
 					1);
-			return res;
+
+			if(xioctl(_fd, VIDIOC_QBUF, &buf))
+			{
+				return -1;
+			}
+
+			return _videoframes.at(buf.index).second;
 		}
+
+		if(_video_capture_mode == 1)
+		{
+			f.unref();
+			_dword readbyte = 0;
+			size_t remainframe = 0;
+			char *pbuff = NULL;
+
+			remainframe = _videoframes.at(0).second;
+			pbuff = (char *)_videoframes.at(0).first;
+			do
+			{
+				readbyte = read(_fd, (pbuff + (_videoframes.at(0).second - remainframe)), remainframe);
+				if(readbyte < 0)
+				{
+					switch(errno)
+					{
+					case EIO:
+					case EAGAIN:
+						continue;
+					default:
+						return -1;
+					}
+				}
+				remainframe -= readbyte;
+			}while(remainframe > 0);
+			
+			f.raw()->width = _video_width;
+			f.raw()->height = _video_height;
+			f.raw()->format = _videoformat;
+
+
+			av_frame_get_buffer(f.raw(), 0);
+
+			av_image_fill_arrays(f.raw()->data,
+					f.raw()->linesize,
+					(uint8_t *)pbuff,
+					_videoformat,
+					_video_width,
+					_video_height,
+					1);
+			return _videoframes.at(0).second;
+		}
+
 		return res;
 	}
 	int video_width() const
@@ -406,6 +466,7 @@ private:
 	int _byteper_frame;
 	int _video_buffer_count;
 	int _fd;
+	bool _ing;
 	int _pipe[2];
 	std::vector<std::pair<void *, unsigned>> _videoframes;
 };

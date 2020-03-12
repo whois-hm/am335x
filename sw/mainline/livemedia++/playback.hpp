@@ -16,11 +16,6 @@ public:
 		{
 			return nullptr;
 		}
-		if(!access(name, 0))
-		{
-			inst = new local_playback(attr, name);
-		}
-
 		if(!inst)
 		{
 #if defined have_uvc
@@ -33,8 +28,18 @@ public:
 				inst = new uvc_playback(attr, name);
 			}
 #endif
-
 		}
+		if(!inst)				
+		{
+			if(!access(name, 0))
+			{
+				inst = new local_playback(attr, name);
+			}
+				
+		}
+
+
+
 		if(!inst)
 		{
 			inst = new rtsp_playback(attr, name, time, id, pwd);

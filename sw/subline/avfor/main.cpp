@@ -65,7 +65,7 @@ public:
 					nvideo_format != std::get<2>(display_fmt),
 					"can't open display, parameter has invalid from supported display");
 
-			ti(!interface->make_window("mainwindow",ui_rect(3000,
+			ti(!interface->make_window("mainwindow",ui_rect(0,
 					0,
 					nvideo_width,
 					nvideo_height)),
@@ -77,6 +77,7 @@ public:
 				ui_rect(0, 0,
 						nvideo_width,
 						nvideo_height)));
+
 			has_v = true;
 		}
 		/*

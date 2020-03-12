@@ -69,7 +69,7 @@ int open_v412()
 	desc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 	
-	fd = open("/dev/video0", O_RDWR|O_NONBLOCK, 777);
+	fd = open("/dev/video0", O_RDWR|O_NONBLOCK, 0);
 
 	if(fd < 0)
 	{
@@ -189,6 +189,8 @@ int open_v412()
 				return -1;
 			}						
 		}		
+
+		
 			for(i = 0; i < buffercount; i++)
 			{
 				memset(&buf, 0, sizeof(struct v4l2_buffer));
@@ -204,7 +206,9 @@ int open_v412()
 				}
 			}
 			
+			
 			printf("mode at 0\n");
+			
 			type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 			if(xioctl(fd, VIDIOC_STREAMON, &type))
 			{
@@ -214,6 +218,7 @@ int open_v412()
 				fd = -1;
 				return -1;
 			}
+			
 	}
 	if(v4l2_io_mode == 1)
 	{
@@ -247,6 +252,8 @@ void close_v4l2()
 		fd = -1;
 	}
 }
+
+
 void read_v4l2(int frame_count)
 {
 	int a = 0;
@@ -257,16 +264,19 @@ void read_v4l2(int frame_count)
 		unsigned readbyte = 0;
 		unsigned remainframe = 0;
 		char *pbuf = NULL;
+
+
 		struct pollfd signalfd;		
 		memset(&signalfd, 0, sizeof(struct pollfd));
 		memset(&buf, 0, sizeof(struct v4l2_buffer));
 
 		signalfd.fd = fd;
-		signalfd.events = POLLIN | POLLPRI;
+		signalfd.events =(POLLIN | POLLPRI | POLLRDNORM);
 
-		printf("read_v4l2\n");
-		res = poll(&signalfd, 1, 500);
 
+		res = poll(&signalfd, 1, -1);
+
+		printf("res = %d\n", res);
 		if(res == -1)
 		{
 			printf("reading fail\n");
@@ -277,8 +287,25 @@ void read_v4l2(int frame_count)
 			printf("read_v4l2 res 0\n");
 			continue;
 		}
+		if(signalfd.revents & ( POLLERR | POLLHUP | POLLNVAL))
+		{
+						printf("poll has err\n");		
+						if(signalfd.revents & POLLERR)
+							{
+													printf("poll has err 0 \n");		
+							}
+												if(signalfd.revents & POLLHUP)
+							{
+													printf("poll has err1\n");		
+							}
+																		if(signalfd.revents & POLLNVAL)
+							{
+													printf("poll has err2\n");		
+							}
+		}
 		if(signalfd.revents & (POLLIN | POLLPRI | POLLRDNORM))
 		{
+						printf("reading frame %d\n", a++);
 			if(v4l2_io_mode == 0)		
 			{
 				memset(&buf, 0, sizeof(struct v4l2_buffer));
@@ -299,7 +326,7 @@ void read_v4l2(int frame_count)
 					printf("reading invalid index reading\n");
 					break;
 				}
-				printf("reading frame %d\n", a++);
+
 			}
 			if(v4l2_io_mode == 1)		
 			{
@@ -332,6 +359,9 @@ ioreadfail:
 	printf("");
 	
 }
+
+
+
 int main()
 {
 	if(open_v412() >= 0)
