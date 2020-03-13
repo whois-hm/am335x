@@ -78,9 +78,11 @@ extern "C"
 #include "swxcontext_class.hpp"
 #include "busyscheduler.hpp"
 #include "decoder.hpp"
+#include "encoder.hpp"
 #include "wthread.hpp"
 #include "mediacontainer.hpp"
 #include "framescheduler.hpp"
+#include "uvc.hpp"
 
 #include "live5scheduler.hpp"
 #include "live5extsource.hpp"
@@ -91,7 +93,7 @@ extern "C"
 #include "playback_inst.hpp"
 #include "local_playback.hpp"
 #include "rtsp_playback.hpp"
-#include "uvc.hpp"
+
 #if defined have_uvc
 #include "uvc_playback.hpp"
 #endif

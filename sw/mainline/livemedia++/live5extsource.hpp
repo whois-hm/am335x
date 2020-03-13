@@ -38,6 +38,10 @@ private:
 			we offered next frame by event trigger 'dogetnextframe_from_bufer'
 		*/
 	}
+	virtual void doStopgGttingFrames()
+	{
+		FramedSource::doStopGettingFrames();
+	}
 	void dogetnextframe_from_buffer()
 	{
 		return get();
@@ -166,3 +170,143 @@ private:
 				_scheduler.trigger(_trigger_id);
 		}
 };
+
+//=====================================================================
+
+template <typename T>
+class live5extsource_uvc :
+	public live5extsource<T>
+{
+private:
+	char const *_device;
+#if defined have_uvc
+	uvc *_uvc;
+#endif
+	std::thread *_thread_uvc;
+	encoder *_enc;
+	bool _bloop;
+	std::mutex _stream_lock;
+	avattr _attr;
+	void operator()(avframe_class &frm, avpacket_class &pkt,void * )
+	{
+	/*
+		put data to scheduler
+	*/
+		live5extsource<T>::put(pkt.raw()->data, pkt.raw()->size);
+	}
+
+public:
+	live5extsource_uvc(char const *device,
+		live5scheduler<T> &scheduler, 
+		unsigned trigger_id,
+		UsageEnvironment &env) : 
+		live5extsource<T>(scheduler, trigger_id, env, 1000),
+			_device(device),
+#if defined have_uvc
+			_uvc(nullptr),
+#endif
+			_thread_uvc(nullptr),
+			_enc(nullptr),
+			_bloop(true)
+	{
+	/*
+		
+	*/
+#if defined have_uvc
+			_uvc = new uvc(_device);
+			_attr.set(avattr_key::frame_video, avattr_key::frame_video, 0, 0.0);
+			_attr.set(avattr_key::width, avattr_key::width, _uvc->video_width(), 0.0);
+			_attr.set(avattr_key::height, avattr_key::height, _uvc->video_height(), 0.0);
+			_attr.set(avattr_key::pixel_format, avattr_key::pixel_format, (int)_uvc->video_format(), 0.0);
+			_attr.set(avattr_key::fps, avattr_key::fps, _uvc->video_fps(), 0.0);
+			/*
+				perhaps fix value 
+			*/
+			_attr.set(avattr_key::bitrate, avattr_key::bitrate, 400000, 0.0);
+			_attr.set(avattr_key::gop, avattr_key::gop, 10, 0.0);
+			_attr.set(avattr_key::max_bframe, avattr_key::max_bframe, 1, 0.0);
+			_attr.set(avattr_key::encoderid, avattr_key::encoderid, (int)AV_CODEC_ID_H264, 0.0);
+			
+			_enc = new encoder(_attr);
+			_stream_lock.lock();
+			_thread_uvc = new std::thread([&]()->void{
+					while(_bloop)
+					{
+						autolock a(_stream_lock);
+						int res = _uvc->waitframe(5000);
+						if(res > 0)
+						{
+							avframe_class frame;
+							if(_uvc->get(frame) > 0)
+							{
+								_enc->encoding(frame,(*this)());
+							}
+						}
+					}
+				});	
+#endif
+	}
+	virtual ~live5extsource_uvc()
+	{
+		_stream_lock.unlock();
+		_bloop = false;
+		if(_thread_uvc)
+		{
+			_thread_uvc->join();
+			delete  _thread_uvc;
+		}
+#if defined have_uvc
+		if(_uvc) delete _uvc;
+#endif
+		if(_enc) delete _enc;
+	}
+	virtual void doGetNextFrame()
+	{
+		/*	
+			we use this function that start frame flag
+		*/
+		_stream_lock.unlock();
+	}
+	virtual void doStopgGttingFrames()
+	{
+		live5extsource<T>::doStopGettingFrames();
+		_stream_lock.try_lock();
+	}
+	bool has_video()
+	{
+		return !_attr.notfound(avattr_key::frame_video);
+	}
+	int video_width()
+	{
+		return _attr.get_int(avattr_key::width,-1);
+	}
+	int video_height()
+	{
+		return _attr.get_int(avattr_key::height,-1);
+	}	
+	enum AVPixelFormat videoformat()
+	{
+		return (enum AVPixelFormat)_attr.get_int(avattr_key::pixel_format,-1);
+	}
+	int video_fps()
+	{
+		return _attr.get_int(avattr_key::fps,-1);
+	}
+	int video_bitrate()
+	{
+		return _attr.get_int(avattr_key::bitrate,-1);
+	}
+	int video_gop()
+	{
+		return _attr.get_int(avattr_key::gop,-1);
+	}
+	int video_max_bframe()
+	{
+		return _attr.get_int(avattr_key::max_bframe,-1);
+	}
+	enum AVCodecID video_codec()
+	{
+		return (enum AVCodecID)_attr.get_int(avattr_key::encoderid,-1);
+	}
+};
+

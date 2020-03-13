@@ -454,6 +454,10 @@ public:
 	{
 		return _videoformat;
 	}
+	int video_fps() const
+	{
+		return 25;/*dump*/
+	}
 
 private:
 	char const *_dev;

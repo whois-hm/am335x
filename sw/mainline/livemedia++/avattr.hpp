@@ -23,6 +23,13 @@ namespace avattr_key
 	static constexpr char const * const channel = "channel";
 	static constexpr char const * const samplerate = "samplerate";
 	static constexpr char const * const pcm_format= "pcm format";
+
+	static constexpr char const * const encoderid= "encoder id";
+
+	static constexpr char const * const fps= "fps";
+	static constexpr char const * const bitrate= "bitrate";
+	static constexpr char const * const gop= "gop";
+	static constexpr char const * const max_bframe= "max bframe";
 }
 
 
