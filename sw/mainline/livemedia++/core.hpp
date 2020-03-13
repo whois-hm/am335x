@@ -81,7 +81,10 @@ extern "C"
 #include "wthread.hpp"
 #include "mediacontainer.hpp"
 #include "framescheduler.hpp"
+
 #include "live5scheduler.hpp"
+#include "live5extsource.hpp"
+
 #include "live5rtspserver.hpp"
 #include "live5rtspclient.hpp"
 #include "mediaserver.hpp"

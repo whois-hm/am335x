@@ -63,6 +63,15 @@ class cpu_usage
 		_int->write_user(u);
 		
 	}
+		void put_main()
+	{
+		
+		struct pe_user u;
+		u._code = custom_code_util_cpu_usage_stop_notify;
+		u._ptr = nullptr;
+		_int->write_user(u);
+		
+	}
 	void update_usage()
 	{
 		struct tms timesample;
@@ -106,6 +115,7 @@ class cpu_usage
 	void stop_usage()
 	{
 		_state = stop;
+		put_main();
 	}
 	void ing_usage()
 	{
@@ -238,16 +248,6 @@ public:
 				}
 			}
 		}
-		if(e.what() == platform_event_user)
-		{
-			if(e.user()->_code == custom_code_util_cpu_usage_notify)
-			{
-				struct cpu_manager_par *par = (struct cpu_manager_par *)e.user()->_ptr;
-				printf("cpu usage [cpu : %f][sys : %f][usr : %f][idle : %f]\n", par->_cpu, par->_sys, par->_usr, par->_idle);
-				delete par;
-			}
-		}
-
 	}
 	
 };

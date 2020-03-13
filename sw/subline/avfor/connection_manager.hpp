@@ -304,13 +304,7 @@ public:
 
 	virtual void operator()(ui_event &e)
 	{
-		if(e.what() == platform_event_user)
-		{
-			if(e.user()->_code == custom_code_section_connection_recv_command)
-			{
-				free(e.user()->_ptr);
-			}
-		}
+
 	}
 };
 

@@ -131,16 +131,23 @@ private:
 			char const *des,
 			Args ...args)
 	{
+		/*
+			main session create if null 
+		*/
 		if(nullptr ==
 				lookupServerMediaSession(_session_name))
 		{
-			this->addServerMediaSession(ServerMediaSession::createNew(envir(),
+			this->addServerMediaSession(
+				ServerMediaSession::createNew(envir(),
 					_session_name,
 					info,
 					des,
 					false,
 					nullptr));
 		}
+		/*
+			return the your request typename 'T'subsession
+		*/
 		return  std::make_pair(lookupServerMediaSession(_session_name),
 						_T::createNew(envir(), _url, args...));
 	}

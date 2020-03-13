@@ -431,7 +431,7 @@ static void am335x_gpio_exit( void )
 	clock_enable_cleanup();
 	control_module_cleanup();
 	gpio_register_cleanup();
-	hrtimer_cancel(&hr_ta);
+	//hrtimer_cancel(&hr_ta);
 	unregister_chrdev(char_dev_name_major, char_dev_name);
 
 	printk(KERN_INFO "unload module gpio\n");
@@ -454,7 +454,7 @@ static int am335x_gpio_init( void )
 	gpio_register_set_oe();
 	register_map_setup();
 
-	hrtimer_init(&hr_ta, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	//hrtimer_init(&hr_ta, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	hr_ta.function = &pwm_ctl;
 
 	return 0;

@@ -371,8 +371,10 @@ public:
 #define custom_code_section_client_ready_to_play			2
 #define custom_code_section_client_presentation_tme		4
 #define custom_code_util_cpu_usage_notify					3
-#define custom_code_section_connection_recv_command		5
-#define custom_code_section_connection_close				6
+#define custom_code_util_cpu_usage_stop_notify					5
+
+#define custom_code_section_connection_recv_command		6
+#define custom_code_section_connection_close				7
 
 
 class manager
@@ -396,6 +398,7 @@ public:
 #include "connection_manager.hpp"
 #include "client_manager.hpp"
 #include "cpu_manager.hpp"
+#include "gpio_manager.hpp"
 
 
 

@@ -127,6 +127,21 @@ public:
 		livemedia_pp::ref(false);
 		printf("bye avfor\n");
 	}
+	void cleanup_par(ui_event &e)
+	{
+		if(e.what() == platform_event_user)
+		{
+			if(e.user()->_code == custom_code_section_connection_recv_command)
+			{
+				free(e.user()->_ptr);
+			}
+			if(e.user()->_code == custom_code_util_cpu_usage_notify)
+			{
+				struct cpu_manager_par *par = (struct cpu_manager_par *)e.user()->_ptr;
+				delete par;
+			}
+		}
+	}
 
 	/*
 	 	 our main loop
@@ -150,12 +165,7 @@ public:
 			}
 			/* last manager load */
 			load_manager<cpu_manager>(res);
-			/*
-			 	 warnning
-			 	 connection_manager event parameter has malloc data.
-			 	 this malloc data self free in 'connection_manager'
-			 	 therefor the data should be process last eventhandler
-			 */
+			load_manager<gpio_manager>(res);
 			load_manager<connection_manager>(res);
 
 			for(auto &it : _managers)
@@ -175,6 +185,7 @@ public:
 
 		return res;
 	}
+	
 	/*
 		 	 our main event handler
 	*/
@@ -187,6 +198,8 @@ public:
 				/*throw to manager*/
 				(*it)(e);
 			}
+			cleanup_par(e);
+
 			if(e.what() == platform_event_error)
 			{
 				break;
