@@ -4,19 +4,19 @@
 /*
 	input source from other threads data
 */
-template <typename T>/*
-							template T 
-							only  live5scheduler<T> use for 'register trigger'
-						*/
+
 
 class live5extsource : public FramedSource
 {
 private:
-	live5scheduler<T> &_scheduler;
 	/*
+	
 		trigger event id from another thread
+		don't use live5scheduler<type>'s api, because avoid dependency
 	*/
-	unsigned _trigger_id;
+	EventTriggerId _id;
+
+
 	unsigned _buffersize;
 	unsigned char *_buffer;
 	unsigned _bufferindx;
@@ -32,23 +32,20 @@ private:
 	*/
 	std::mutex _lock;
 
-	virtual void doGetNextFrame()
+
+	static void dogetnextframe_frm_buffer1(void *c)
 	{
-		/*	stop.
-			we offered next frame by event trigger 'dogetnextframe_from_bufer'
-		*/
-	}
-	virtual void doStopgGttingFrames()
-	{
-		FramedSource::doStopGettingFrames();
+		live5extsource * s = (live5extsource *)c;
+		s->dogetnextframe_from_buffer();
 	}
 	void dogetnextframe_from_buffer()
 	{
-		return get();
+		//return get();
 	}
 	void get()
 	{
 		_lock.lock();
+
 
 		/*
 			calculate read avail
@@ -57,17 +54,22 @@ private:
 		unsigned read_reqeust_size = fMaxSize;
 		unsigned remain_size = 0;
 		fFrameSize = read_avail_size >= read_reqeust_size ? read_reqeust_size : read_avail_size;
-		fNumTruncatedBytes = read_reqeust_size >= fFrameSize ? 0 : read_reqeust_size - fFrameSize;
+		fNumTruncatedBytes = read_reqeust_size >= fFrameSize ? read_reqeust_size - fFrameSize : 0;
 		remain_size = read_avail_size - fFrameSize;
 
 		/*
 			copy data to source or sink.
 		*/
-		memcpy(fTo, _buffer, fFrameSize);
+
+		if(fFrameSize)
+			memcpy(fTo, _buffer, fFrameSize);
+
 		if(remain_size)
 			memcpy(_buffer, _buffer + fFrameSize, remain_size);
-		
+
+
 		_bufferindx = remain_size;
+		if(fFrameSize)printf("framesize = %d request size = %d remain size = %d truncatebyte = %d\n", fFrameSize,read_reqeust_size, remain_size, fNumTruncatedBytes);
 		/*
 			wake up 'put' thread if sleep
 		*/
@@ -76,7 +78,6 @@ private:
 			SEMA_unlock(&_lock_put);
 		}
 		_lock.unlock();
-
 
 		/*
 			pts write
@@ -87,6 +88,20 @@ private:
 			deliver to aftergetting function ptr
 		*/
 		FramedSource::afterGetting(this);		
+
+	}
+protected:
+	virtual void doGetNextFrame()
+	{
+		/*	stop.
+			we offered next frame by event trigger 'dogetnextframe_from_bufer'
+		*/
+		get();
+	}
+
+	virtual void doStopgGttingFrames()
+	{
+		FramedSource::doStopGettingFrames();
 	}
 	public:
 		virtual ~live5extsource()
@@ -101,32 +116,23 @@ private:
 			}
 			_lock.unlock();
 			__base__free__(_buffer);
+			envir().taskScheduler().deleteEventTrigger(_id);
 		}
-		live5extsource(live5scheduler<T> &scheduler, 
-			unsigned trigger_id,
+		live5extsource(
 			UsageEnvironment &env,
 			unsigned buffersize) :
 			FramedSource(env), 
-				_scheduler(scheduler),
-				_trigger_id(trigger_id),
+				_id(0),
 				_buffersize(buffersize),
 				_buffer((unsigned char *)__base__malloc__(_buffersize)),
 				_bufferindx(0),
 				_putis_lock(false)
-			{
-				throw_if ti;				
-				ti(_buffersize < 0, "live5extsource can't create buffersize zero");
-				ti(!_buffer, "live5extsource can't create buffer is null pointer");
-				ti(SEMA_open(&_lock_put, 0,1) < 0, "live5extsource can't create semaphore has error");
+			{			
+				DECLARE_THROW(_buffersize < 0, "live5extsource can't create buffersize zero");
+				DECLARE_THROW(!_buffer, "live5extsource can't create buffer is null pointer");
+				DECLARE_THROW(SEMA_open(&_lock_put, 0,1) < 0, "live5extsource can't create semaphore has error");
 
-				_scheduler.register_trigger(_trigger_id, 
-					[]()->void{
-						/*
-							deliver data to request sink or source
-						*/
-						dogetnextframe_from_buffer();
-					}
-				);
+				_id = env.taskScheduler().createEventTrigger(dogetnextframe_frm_buffer1);
 			}
 
 		void put(unsigned char *ptr, unsigned nptr)
@@ -134,6 +140,7 @@ private:
 			/*
 				invalid parameter
 			*/
+			unsigned zsize = nptr;
 			unsigned usrindx = 0;
 			while(nptr > 0 && 
 				ptr)
@@ -146,12 +153,14 @@ private:
 					/*
 						copy the buffer if available writing size
 					*/
+					
 					unsigned write_size = remain_size >= nptr ? nptr : remain_size; 				
 					memcpy(_buffer + _bufferindx, ptr + usrindx, write_size);
 					usrindx += write_size;
 					nptr -= write_size;
 					_bufferindx += write_size;
 				}
+
 				_lock.unlock();
 				/*
 					thread sleep untill write enable
@@ -166,16 +175,18 @@ private:
 				if success writing in the buffer,
 				signal sending to scheudler for calling 'get()'
 			*/
-			if(usrindx)
-				_scheduler.trigger(_trigger_id);
+		//	if(usrindx)
+			//	envir().taskScheduler().triggerEvent(_id, this);
 		}
 };
 
 //=====================================================================
+//class uvc source 
+//
 
-template <typename T>
+
 class live5extsource_uvc :
-	public live5extsource<T>
+	public live5extsource
 {
 private:
 	char const *_device;
@@ -187,20 +198,12 @@ private:
 	bool _bloop;
 	std::mutex _stream_lock;
 	avattr _attr;
-	void operator()(avframe_class &frm, avpacket_class &pkt,void * )
-	{
-	/*
-		put data to scheduler
-	*/
-		live5extsource<T>::put(pkt.raw()->data, pkt.raw()->size);
-	}
+
 
 public:
 	live5extsource_uvc(char const *device,
-		live5scheduler<T> &scheduler, 
-		unsigned trigger_id,
 		UsageEnvironment &env) : 
-		live5extsource<T>(scheduler, trigger_id, env, 1000),
+		live5extsource(env, 10000),
 			_device(device),
 #if defined have_uvc
 			_uvc(nullptr),
@@ -214,6 +217,7 @@ public:
 	*/
 #if defined have_uvc
 			_uvc = new uvc(_device);
+
 			_attr.set(avattr_key::frame_video, avattr_key::frame_video, 0, 0.0);
 			_attr.set(avattr_key::width, avattr_key::width, _uvc->video_width(), 0.0);
 			_attr.set(avattr_key::height, avattr_key::height, _uvc->video_height(), 0.0);
@@ -226,21 +230,49 @@ public:
 			_attr.set(avattr_key::gop, avattr_key::gop, 10, 0.0);
 			_attr.set(avattr_key::max_bframe, avattr_key::max_bframe, 1, 0.0);
 			_attr.set(avattr_key::encoderid, avattr_key::encoderid, (int)AV_CODEC_ID_H264, 0.0);
+
+			{
+				/*
+					......  test code ,  delete later
+					lib264 can't support if camera's pixel format
+					lib264 has encoding format yuv420p only, current build option.....
+				*/
+				encoder encodertest;
+				if(AV_PIX_FMT_YUV420P != _uvc->video_format() &&
+					encodertest.parameter_open_test(_attr))
+				{
+					_attr.reset(avattr_key::pixel_format, avattr_key::pixel_format, (int)AV_PIX_FMT_YUV420P, 0.0);
+				}				
+			}
+
 			
 			_enc = new encoder(_attr);
 			_stream_lock.lock();
 			_thread_uvc = new std::thread([&]()->void{
+				DECLARE_LIVEMEDIA_NAMEDTHREAD("live5extsource_uvc");
 					while(_bloop)
-					{
+					{						
 						autolock a(_stream_lock);
+
+
+				
+						Time_sleep(100);
+
 						int res = _uvc->waitframe(5000);
+
+
 						if(res > 0)
 						{
-							avframe_class frame;
-							if(_uvc->get(frame) > 0)
-							{
-								_enc->encoding(frame,(*this)());
-							}
+							
+							_uvc->get_videoframe([&](pixelframe &pix)->void{
+							
+									swxcontext_class (pix, _attr);
+
+									int res = _enc->encoding(pix,(*this));
+	
+
+								});
+
 						}
 					}
 				});	
@@ -260,17 +292,28 @@ public:
 #endif
 		if(_enc) delete _enc;
 	}
+		void operator()(avframe_class &frm, avpacket_class &pkt,void * )
+	{
+	/*
+		put data to scheduler
+	*/
+
+		live5extsource::put(pkt.raw()->data, pkt.raw()->size);
+	}
 	virtual void doGetNextFrame()
 	{
 		/*	
 			we use this function that start frame flag
 		*/
-		_stream_lock.unlock();
+		if(!_stream_lock.try_lock())
+			_stream_lock.unlock();
+		
+		live5extsource::doGetNextFrame();
 	}
 	virtual void doStopgGttingFrames()
 	{
-		live5extsource<T>::doStopGettingFrames();
-		_stream_lock.try_lock();
+		live5extsource::doStopGettingFrames();
+		_stream_lock.lock();
 	}
 	bool has_video()
 	{

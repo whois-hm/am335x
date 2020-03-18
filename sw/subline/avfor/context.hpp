@@ -15,8 +15,8 @@
 #define authentication_password 		"authentication_password"
 
 
-#define section_proxy_server 			"[proxy_server]"
-#define proxy_url 							"proxy_url"
+#define section_server 			"[server]"
+#define url 							"url"
 #define proxy_autentication_id 			"proxy_autentication_id"
 #define proxy_autentication_password 	"proxy_autentication_password"
 #define server_session_name 				"server_session_name"
@@ -24,12 +24,6 @@
 #define server_autentication_id 			"server_autentication_id"
 #define server_autentication_password 	"server_autentication_password"
 
-#define section_file_server 				"[file_server]"
-#define file_source 						"file_source"
-#define server_session_name 				"server_session_name"
-#define server_port 						"server_port"
-#define server_autentication_id 			"server_autentication_id"
-#define server_autentication_password 	"server_autentication_password"
 
 #define section_gui 			"[gui]"
 #define video_width 			"video_width"
@@ -67,8 +61,7 @@ private:
 		{
 				section_connection,
 				section_client,
-				section_proxy_server,
-				section_file_server,
+				section_server,
 				section_gui
 		};
 
@@ -169,6 +162,7 @@ private:
 			}
 
 			_values.push_back(std::make_pair(str, avattr()));
+			printf("section find : %s\n", str.c_str());
 			find_kv(_values.back().second, stream);
 		}while(0);
 		return find_section(stream);
@@ -196,18 +190,14 @@ private:
 				authentication_id 			,
 				authentication_password	,
 
-				proxy_url 					,
+				url 					,
 				proxy_autentication_id 		,
 				proxy_autentication_password,
 				server_session_name 		,
 				server_port 					,
 				server_autentication_id		,
-
-				file_source 					,
-				server_session_name 		,
-				server_port 					,
-				server_autentication_id 	,
 				server_autentication_password,
+					
 
 				video_width 	,
 				video_height 	,
@@ -269,8 +259,7 @@ private:
 	{
 		int no_duplicate_section = 0;
 		if(has_section(section_client)) 			no_duplicate_section++;
-		if(has_section(section_proxy_server)) 	no_duplicate_section++;
-		if(has_section(section_file_server)) 	no_duplicate_section++;
+		if(has_section(section_server)) 	no_duplicate_section++;
 		return has_section(section_connection) &&
 				no_duplicate_section == 1;
 	}
@@ -299,13 +288,13 @@ private:
 public:
 	avfor_context(int argc, char **argv)
 	{
-		throw_if ti;
+
 		std::ifstream stream;
 		stream.open(argv[1], std::ios::in);
-		ti(!stream.is_open(), "can't open setup file");
+		DECLARE_THROW(!stream.is_open(), "can't open setup file");
 		find_section(stream);
 		stream.close();
-		ti(!values_check(), "invalid setup file");
+		DECLARE_THROW(!values_check(), "invalid setup file");
 
 
 	}
@@ -397,6 +386,7 @@ public:
 };
 #include "connection_manager.hpp"
 #include "client_manager.hpp"
+#include "server_manager.hpp"
 #include "cpu_manager.hpp"
 #include "gpio_manager.hpp"
 

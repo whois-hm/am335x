@@ -213,9 +213,7 @@ public:
 		_fmt(AV_PIX_FMT_NONE),
 		_paint(nullptr) 
 	{
-		throw_if a;
-		
-		a(!open_test(), "can't open driver");
+		DECLARE_THROW(!open_test(), "can't open driver");
 	}
 	virtual ~directfb()
 	{

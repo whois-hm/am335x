@@ -98,8 +98,7 @@ public:
 			char const *codec) : _avcontext(nullptr),
 					_frame(avframe_class())
 	{
-		throw_if ti;
-		ti(!decoder_open_test(attr,
+		DECLARE_THROW(!decoder_open_test(attr,
 				codec,
 				nullptr,
 				nullptr),
@@ -112,8 +111,7 @@ public:
 			enum AVCodecID codec) : _avcontext(nullptr),
 					_frame(avframe_class())
 	{
-		throw_if ti;
-		ti(!decoder_open_test(attr,
+		DECLARE_THROW(!decoder_open_test(attr,
 				nullptr,
 				&codec,
 				nullptr),
@@ -125,8 +123,7 @@ public:
 	decoder( const AVCodecParameters *codec) : _avcontext(nullptr),
 			_frame(avframe_class())
 	{
-		throw_if ti;
-		ti(!decoder_open_test(avattr(),
+		DECLARE_THROW(!decoder_open_test(avattr(),
 				nullptr,
 				nullptr,
 				codec),

@@ -86,7 +86,6 @@ private:
             //TODO metadata copy ?
             //ffmpeg has copy metadata funtion
             //but not copy our need data
-		throw_if ti;
 		avframe_class _new;
 		_new.raw()->channel_layout = av_get_default_channel_layout(std::get<0>(_renew));
 		_new.raw()->channels = std::get<0>(_renew);
@@ -104,14 +103,13 @@ private:
 
 
 
-		ti(swr_convert_frame((struct SwrContext *)_lock_context, _new.raw(), frm.raw()),
+		DECLARE_THROW(swr_convert_frame((struct SwrContext *)_lock_context, _new.raw(), frm.raw()),
 				"can't swr_convert");
 		frm = *_new.raw();
 
 	}
 	void conv(pixelframe &frm)
 	{
-		throw_if ti;
 
 		avframe_class _new;
 		_new.raw()->width = std::get<0>(_renew);
@@ -127,9 +125,9 @@ private:
         _new.raw()->pkt_duration = frm.raw()->pkt_duration;
         _new.raw()->pkt_size = frm.raw()->pkt_size;
 
-		ti(av_frame_get_buffer(_new.raw(), 0),
+		DECLARE_THROW(av_frame_get_buffer(_new.raw(), 0),
 				"can't av_frame_get_buiffer");
-		ti(0 >= sws_scale((struct SwsContext *)_lock_context,
+		DECLARE_THROW(0 >= sws_scale((struct SwsContext *)_lock_context,
 				frm.raw()->data,
 				frm.raw()->linesize,
 				0,

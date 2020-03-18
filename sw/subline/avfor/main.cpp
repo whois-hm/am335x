@@ -21,7 +21,6 @@ public:
 	ui * load_gui_if_set()
 	{
 		ui *interface = nullptr;
-		throw_if ti;
 		triple_int display_fmt;
 		int nvideo_width = 0;
 		int nvideo_height = 0;
@@ -60,23 +59,24 @@ public:
 			 	 this mean that use section and parameter all vaild
 			 	 but system display not supported 'throw!'
 			 */
-			ti(nvideo_width > std::get<0>(display_fmt) ||
+			DECLARE_THROW(nvideo_width > std::get<0>(display_fmt) ||
 					nvideo_height > std::get<1>(display_fmt) ||
 					nvideo_format != std::get<2>(display_fmt),
 					"can't open display, parameter has invalid from supported display");
 
-			ti(!interface->make_window("mainwindow",ui_rect(0,
+			DECLARE_THROW(!interface->make_window("mainwindow",ui_rect(0,
 					0,
 					nvideo_width,
 					nvideo_height)),
 					"can't make window ");
 
-			ti(!interface->make_pannel("mainwindow",
+			DECLARE_THROW(!interface->make_pannel("mainwindow",
 				"display area",
 				ui_color(0, 0, 0),
 				ui_rect(0, 0,
 						nvideo_width,
-						nvideo_height)));
+						nvideo_height)),
+						"can't make pannel");
 
 			has_v = true;
 		}
@@ -89,7 +89,7 @@ public:
 				naudio_format >= 0)
 		{
 			/*open test*/
-			ti(!interface->install_audio_thread(nullptr,
+			DECLARE_THROW(!interface->install_audio_thread(nullptr,
 					naudio_channel,
 					naudio_samplingrate,
 					naudio_samplesize,
@@ -99,7 +99,7 @@ public:
 			interface->uninstall_audio_thread();
 			has_a = true;
 		}
-		ti(!has_v && !has_a, "can't open gui system, your parameter has invalid");
+		DECLARE_THROW(!has_v && !has_a, "can't open gui system, your parameter has invalid");
 		return interface;
 	}
 
@@ -108,7 +108,7 @@ public:
 		_int(nullptr)
 	{
 		livemedia_pp::ref();
-		throw_register_sys_except();
+
 		_avc = new avfor_context(argc, argv);
 		_int = load_gui_if_set();
 		_int->install_event_filter(std::bind(&avfor::handler,
@@ -149,6 +149,7 @@ public:
 	int operator()()
 	{
 		int res = 0;
+		DECLARE_LIVEMEDIA_NAMEDTHREAD("main");
 
 		/* on the client */
 		do
@@ -157,7 +158,10 @@ public:
 			{
 				load_manager<client_manager>(res);
 			}
-
+			if(_avc->has_section(section_server))
+			{
+				load_manager<server_manager>(res);
+			}
 			/* no managers load */
 			if(!res)
 			{
@@ -179,7 +183,7 @@ public:
 			}
 			/*now startp*/
 
-			printf("avfor loop start");
+			printf("avfor loop start\n");
 			res = _int->exec();
 		}while(0);
 
@@ -228,6 +232,7 @@ int main(int argc, char *argv[])
 {			//rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov
 	//rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov
 	return avfor(argc, argv)();
+
 };
 
 

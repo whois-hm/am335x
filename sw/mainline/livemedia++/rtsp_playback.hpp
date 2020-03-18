@@ -95,8 +95,7 @@ class rtsp_playback :
 					  _durationinmicroseconds(durationinmicroseconds),
 					  _normalplaytime(normalplaytime)
 		{
-			throw_if ti;
-			ti(av_new_packet(&_pkt, size), "can't av_new_packet");
+			DECLARE_THROW(av_new_packet(&_pkt, size), "can't av_new_packet");
 			memcpy(_pkt.data, data, size);
 		}
 		virtual ~rtsppacket()
@@ -266,7 +265,7 @@ class rtsp_playback :
 				char const *medium,
 				char const *codec,
 				char const *title) :
-			wthread(10, sizeof(stream::fucntor_par)),
+			wthread(10, sizeof(stream::fucntor_par), std::string(std::string(medium) + std::string(codec)).c_str()),
 			_attrs(std::make_pair(attr_input, attr_output)),
 			_mediatype(mediatype),
 			_codecid(codecid),
@@ -558,7 +557,7 @@ private:
 				subsession.mediumName(),
 				subsession.codecName(),
 				subsession.ref_title());
-		throw_if ()(!new_streamer, "can't create streamer");
+		DECLARE_THROW(!new_streamer, "can't create streamer");
 
 
 		if(!new_streamer->stream_decoder_open_test())
@@ -625,7 +624,6 @@ public:
 				_scheduler(nullptr)
 
 	{
-		throw_if ti;
 
 		live5rtspclient::report _report(
 				(void *)this,
@@ -649,9 +647,9 @@ public:
 
 
 		_scheduler = new live5scheduler<live5rtspclient>();
-		ti(!_scheduler, "can't create scheduler");
+		DECLARE_THROW(!_scheduler, "can't create scheduler");
 
-		ti(WQOK!= SEMA_open(&_conwait_sema, 0, 1), "can't open semaphore");
+		DECLARE_THROW(WQOK!= SEMA_open(&_conwait_sema, 0, 1), "can't open semaphore");
 		/*
 		 	 register event for rtsp play command send, when play is ready
 		 */

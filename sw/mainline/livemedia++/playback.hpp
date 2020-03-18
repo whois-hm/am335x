@@ -64,7 +64,7 @@ public:
 	 */
 	playback(const avattr &attr, char const *name) :
                 _inst(create_new(attr, name))
-	{ throw_if()(!_inst, "can't create playback inst");}
+	{ DECLARE_THROW(!_inst, "can't create playback inst");}
 
 	/*
 	 	 	 constructor rtsp
@@ -75,7 +75,7 @@ public:
 						char const *auth_id = nullptr,
 						char const *auth_pwd = nullptr) :
                 _inst(create_new(attr, url, connectiontime, auth_id, auth_pwd))
-	{ throw_if()(!_inst, "can't create playback inst");}
+	{ DECLARE_THROW(!_inst, "can't create playback inst");}
 
 	virtual ~playback()
 	{ if(_inst)delete _inst;_inst = nullptr;}

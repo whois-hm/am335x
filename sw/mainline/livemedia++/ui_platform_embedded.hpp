@@ -556,7 +556,7 @@ virtual int exec()
 				return -1;
 			}
 			_ts_reader_thread = new std::thread([&]()->void {
-						
+						DECLARE_LIVEMEDIA_NAMEDTHREAD("ui platform touch");
 						struct pollfd fds[2];
 						
 						while(1)

@@ -1,9 +1,5 @@
 #pragma once
 
-
-	
-
-
 typedef std::tuple
 		<
 		int,/*hour*/
@@ -50,6 +46,26 @@ typedef std::function<void * (size_t)> base_allocator;
 typedef std::function<void (void *)> base_deallocator;
 #define __base__free__ free//libwq_free
 
+	
+inline void* operator new(std::size_t size)
+{
+	void *userblock = __base__malloc__(size);
+
+	return  userblock;
+}
+inline void* operator new[](std::size_t size)
+{
+	void *userblock = __base__malloc__(size);
+
+	return  userblock;
+}
+inline void operator delete(void *ptr)
+{
+
+	return __base__free__(ptr);
+}
+inline void operator delete[](void *ptr)
+{ return __base__free__(ptr); }
 
 
 

@@ -10,9 +10,8 @@ public:
 	_packets(AVMEDIA_TYPE_NB),
 	_eof(false)
 	{
-		throw_if ti;
-		ti(avformat_open_input(&_context,file, NULL, NULL) < 0, "can't open input");
-		ti(avformat_find_stream_info(_context, NULL) < 0, "can't find stream from input");
+		DECLARE_THROW(avformat_open_input(&_context,file, NULL, NULL) < 0, "can't open input");
+		DECLARE_THROW(avformat_find_stream_info(_context, NULL) < 0, "can't find stream from input");
 	}
 
 	virtual ~mediacontainer()

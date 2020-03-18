@@ -187,7 +187,7 @@ class cpu_manager :
 public:
 	cpu_manager(avfor_context  *avc,
 			ui *interface) :
-	wthread(10, sizeof(cpu_usage:: par)),
+	wthread(10, sizeof(cpu_usage:: par), "avfor cpu manager"),
 	manager(avc, interface)
 	{		}
 	~cpu_manager()

@@ -8,7 +8,7 @@ class pcmframe :
 private:
 	void throw_if_not_audio()
 	{
-		throw_if()(type() != AVMEDIA_TYPE_AUDIO,
+		DECLARE_THROW(type() != AVMEDIA_TYPE_AUDIO,
 			"pcm frame type no match");
 	}
 	virtual void field_attr_value(pcm &t)
@@ -69,7 +69,7 @@ public:
 	}
 	virtual void data_copy(uint8_t *ptr, int length)
 	{
-		throw_if ()(!ptr || length < len(), "pixelframe invalid parameter");
+		DECLARE_THROW(!ptr || length < len(), "pixelframe invalid parameter");
 		/*
 		 	 	 we operation pcm 1array style, then
 		 	 	 no use 'av_samples_copy' function

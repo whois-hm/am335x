@@ -16,10 +16,34 @@ private:
 				(enum AVPixelFormat)raw()->format));
 	}
 	void throw_if_not_video()
-	{throw_if()(type() != AVMEDIA_TYPE_VIDEO,
+	{DECLARE_THROW(type() != AVMEDIA_TYPE_VIDEO,
 			"pixel frame type no match");}
 public:
 	pixelframe() = delete;
+
+	/*
+		setup self
+	*/
+	pixelframe (unsigned width, 
+		unsigned height,
+		enum AVPixelFormat fmt,
+		void *p) : 
+		avframe_class_type()
+	{
+	
+		raw()->width = width;
+		raw()->height = height;
+		raw()->format = fmt;
+		av_frame_get_buffer(raw(), 0);
+		
+		av_image_fill_arrays(raw()->data,
+				raw()->linesize,
+				(uint8_t *)p,
+				fmt,
+				width,
+				height,
+				1);
+	}
 
 	pixelframe(const  AVFrame &frm) :
 		avframe_class_type(frm)
@@ -35,6 +59,7 @@ public:
 	{
 
 	}
+
 	pixelframe &operator = (const  AVFrame &frm)
 	{
 		avframe_class_type::operator =(frm);
@@ -64,7 +89,7 @@ public:
 	}
 	virtual void data_copy(uint8_t *ptr, int length)
 	{
-		throw_if ()(!ptr || length < len(), "pixelframe invalid parameter");
+		DECLARE_THROW(!ptr || length < len(), "pixelframe invalid parameter");
 
 		av_image_copy_to_buffer(ptr,
 				length,

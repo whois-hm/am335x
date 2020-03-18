@@ -88,6 +88,7 @@ private:
 		t.replace(ptr, l);
 	}
 protected:
+	avframe_class_type() : avframe_class(){}
 	avframe_class_type(const  AVFrame &frm) :
 		avframe_class(frm){}
 	avframe_class_type(const  avframe_class_type &_class) :

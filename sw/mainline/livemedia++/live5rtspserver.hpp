@@ -83,7 +83,8 @@ public:
 	{
 		none,
 		local_file,
-		proxy
+		proxy,
+		device
 	};
 	live5rtspserver(UsageEnvironment& env,
 			char const *url,/* source where*/
@@ -103,9 +104,8 @@ public:
 			 _url(url),
 			 _mode(none)
 	{
-		throw_if ti;
-		ti(!_url, "can't parse url");
-		ti(fServerSocket == -1, "can't use socket port");
+		DECLARE_THROW(!_url, "can't parse url");
+		DECLARE_THROW(fServerSocket == -1, "can't use socket port");
 		if(usrid && usrpwd)
 		{
 			UserAuthenticationDatabase *authdb = new UserAuthenticationDatabase;
@@ -114,7 +114,8 @@ public:
 		}
 		select_url_local_file();
 		select_url_proxy(proxy_id, proxy_pwd);
-		ti(_mode == none, "can't selection server mode");
+		select_url_device();
+		DECLARE_THROW(_mode == none, "can't selection server mode");
 
 		printf("run server : %s\n", rtspURL(lookupServerMediaSession(_session_name)));
 	}
@@ -148,14 +149,16 @@ private:
 		/*
 			return the your request typename 'T'subsession
 		*/
-		return  std::make_pair(lookupServerMediaSession(_session_name),
-						_T::createNew(envir(), _url, args...));
+		return  std::make_pair(
+		lookupServerMediaSession(_session_name),
+		_T::createNew(envir(), _url, args...));
 	}
 	void new_session_local_file_aac()
 	{
 		/*assumed to be an aac audio (adts format)file*/
 		std::pair<ServerMediaSession *,
-		ADTSAudioFileServerMediaSubsession *> s = make_session_local_file<ADTSAudioFileServerMediaSubsession>("aac audio session",
+		ADTSAudioFileServerMediaSubsession *> s = 
+		make_session_local_file<ADTSAudioFileServerMediaSubsession>("aac audio session",
 				"streamed by livemedia++",
 				false);
 
@@ -165,7 +168,8 @@ private:
 	{
 		/* assumed to be an amr audio file*/
 		std::pair<ServerMediaSession *,
-				AMRAudioFileServerMediaSubsession *> s = make_session_local_file<AMRAudioFileServerMediaSubsession>("amr audio session",
+				AMRAudioFileServerMediaSubsession *> s =
+				make_session_local_file<AMRAudioFileServerMediaSubsession>("amr audio session",
 						"streamed by livemedia++",
 						false);
 	   s.first->addSubsession(s.second);
@@ -174,7 +178,8 @@ private:
 	{
 		/*assumed to be an ac3 audio filfe*/
 		std::pair<ServerMediaSession *,
-		AC3AudioFileServerMediaSubsession *> s = make_session_local_file<AC3AudioFileServerMediaSubsession>("ac3 audio session",
+		AC3AudioFileServerMediaSubsession *> s =
+		make_session_local_file<AC3AudioFileServerMediaSubsession>("ac3 audio session",
 				"streamed by livemedia++",
 				false);
 
@@ -184,7 +189,8 @@ private:
 	{
 		/*assumed to be a mpeg-4 video elementary stream file*/
 		std::pair<ServerMediaSession *,
-		MPEG4VideoFileServerMediaSubsession *> s = make_session_local_file<MPEG4VideoFileServerMediaSubsession>("m4e video session",
+		MPEG4VideoFileServerMediaSubsession *> s =
+		make_session_local_file<MPEG4VideoFileServerMediaSubsession>("m4e video session",
 				"streamed by livemedia++",
 				false);
 		s.first->addSubsession(s.second);
@@ -193,7 +199,8 @@ private:
 	{
 		/*assumed to be a h264 video elementary streamfile*/
 		std::pair<ServerMediaSession *,
-		H264VideoFileServerMediaSubsession *> s = make_session_local_file<H264VideoFileServerMediaSubsession>("264 video session",
+		H264VideoFileServerMediaSubsession *> s = 
+		make_session_local_file<H264VideoFileServerMediaSubsession>("264 video session",
 				"streamed by livemedia++",
 				false);
 
@@ -204,7 +211,8 @@ private:
 	{
 		/*assumed to be a h265 video elementary streamfile*/
 		std::pair<ServerMediaSession *,
-		H265VideoFileServerMediaSubsession *> s = make_session_local_file<H265VideoFileServerMediaSubsession>("265 video session",
+		H265VideoFileServerMediaSubsession *> s = 
+		make_session_local_file<H265VideoFileServerMediaSubsession>("265 video session",
 				"streamed by livemedia++",
 				false);
 
@@ -221,7 +229,8 @@ private:
 	    // (For more information about ADUs and interleaving,
 	    //  see <http://www.live555.com/rtp-mp3/>)
 		std::pair<ServerMediaSession *,
-		MP3AudioFileServerMediaSubsession *> s = make_session_local_file<MP3AudioFileServerMediaSubsession>("mp3 audio session",
+		MP3AudioFileServerMediaSubsession *> s =
+		make_session_local_file<MP3AudioFileServerMediaSubsession>("mp3 audio session",
 				"streamed by livemedia++",
 				false,
 				false,/*stream using adus*/
@@ -235,7 +244,8 @@ private:
 	{
 		/*assumed to be a mpeg-1 or 2 program stream(audio+video)file*/
 		std::pair<ServerMediaSession *,
-		MPEG1or2FileServerDemux *> s = make_session_local_file<MPEG1or2FileServerDemux>("mpg video/audio session",
+		MPEG1or2FileServerDemux *> s = 
+		make_session_local_file<MPEG1or2FileServerDemux>("mpg video/audio session",
 				"streamed by livemedia++",
 				false);
 
@@ -246,7 +256,8 @@ private:
 	{
 		/*assumed to be a vob (mpeg-2 program stream, with ac -3 audio) file*/
 		std::pair<ServerMediaSession *,
-				MPEG1or2FileServerDemux *> s = make_session_local_file<MPEG1or2FileServerDemux>("vob video/audio session",
+				MPEG1or2FileServerDemux *> s = 
+				make_session_local_file<MPEG1or2FileServerDemux>("vob video/audio session",
 						"streamed by livemedia++",
 						false);
 
@@ -264,7 +275,8 @@ private:
 
 
 		std::pair<ServerMediaSession *,
-		MPEG2TransportFileServerMediaSubsession *> s = make_session_local_file<MPEG2TransportFileServerMediaSubsession>("ts session",
+		MPEG2TransportFileServerMediaSubsession *> s =
+		make_session_local_file<MPEG2TransportFileServerMediaSubsession>("ts session",
 				"streamed by livemedia++",
 				indexfilename,
 				false);
@@ -280,7 +292,8 @@ private:
 
 		/*assumed to be a wav audio file*/
 	    std::pair<ServerMediaSession *,
-		WAVAudioFileServerMediaSubsession *> s = make_session_local_file<WAVAudioFileServerMediaSubsession>("wav audio session",
+		WAVAudioFileServerMediaSubsession *> s = 
+		make_session_local_file<WAVAudioFileServerMediaSubsession>("wav audio session",
 				"streamed by livemedia++",
 				false,
 				convertToULaw);
@@ -293,7 +306,8 @@ private:
 		 * first, make sure that the rtpsinks buffers will be large enough to handle the huge size of dv frames (as big as 288000).*/
 		OutPacketBuffer::maxSize = 300000;
 		std::pair<ServerMediaSession *,
-		DVVideoFileServerMediaSubsession *> s = make_session_local_file<DVVideoFileServerMediaSubsession>("dv session",
+		DVVideoFileServerMediaSubsession *> s = 
+		make_session_local_file<DVVideoFileServerMediaSubsession>("dv session",
 				"streamed by livemedia++",
 				false);
 
@@ -301,18 +315,8 @@ private:
 	}
 	void new_session_proxy(char const *proxy_id, char const *proxy_pwd)
 	{
-//		  static ProxyServerMediaSession* createNew(UsageEnvironment& env,
-//							    GenericMediaServer* ourMediaServer, // Note: We can be used by just one server
-//							    char const* inputStreamURL, // the "rtsp://" URL of the stream we'll be proxying
-//							    char const* streamName = NULL,
-//							    char const* username = NULL, char const* password = NULL,
-//							    portNumBits tunnelOverHTTPPortNum = 0,
-//							        // for streaming the *proxied* (i.e., back-end) stream
-//							    int verbosityLevel = 0,
-//							    int socketNumToServer = -1,
-//							    MediaTranscodingTable* transcodingTable = NULL);
-
-	    addServerMediaSession(ProxyServerMediaSession::createNew(envir(),
+	    addServerMediaSession(
+	    ProxyServerMediaSession::createNew(envir(),
 	    		  this,
 				  _url,
 				  _session_name,
@@ -321,6 +325,26 @@ private:
 				  0,
 				  10));
 	}
+	void new_session_device()
+	{
+		/*
+			main session create if null 
+		*/
+		if(nullptr ==
+				lookupServerMediaSession(_session_name))
+		{
+			this->addServerMediaSession(
+				ServerMediaSession::createNew(envir(),
+					_session_name,
+					"device session",
+					"streamd by livemedia++",
+					false,
+					nullptr));
+		}
+
+		lookupServerMediaSession(_session_name)->addSubsession(live5ext_servermdiasubsession::createnew(_url, envir()));
+	}
+		
 	void select_url_local_file()
 	{
 		if(_mode != none)
@@ -385,6 +409,22 @@ private:
 		printf("make session proxy\n");
 		new_session_proxy(proxy_id, proxy_pwd);
 		_mode = proxy;
+	}
+	void select_url_device()
+	{
+		if(_mode != none)
+		{
+			return;
+		}
+		std::string parse(_url);
+		if(parse.find("/dev") ==
+				std::string::npos)
+		{
+			return ;
+		}
+		printf("make session device\n");
+		new_session_device();
+		_mode = device;		
 	}
 private:
 	char const *_session_name;

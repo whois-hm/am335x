@@ -13,28 +13,31 @@ class encoder
 		encode;
 		
 private:
-	void clear()
+	void clear(AVCodecContext *&target)
 	{
-		if(_avcontext)
+		if(target)
 		{
-			avcodec_free_context(&_avcontext);
-			_avcontext = nullptr;
+			avcodec_free_context(&target);
+			target = nullptr;
 		}
 	}
-	bool encoder_open_test( const avattr &attr)
+	bool encoder_open_test( const avattr &attr, AVCodecContext *&target)
 	{		
+		
 		enum AVMediaType type = AVMEDIA_TYPE_UNKNOWN;
 		AVCodec *codec = nullptr;
 		AVRational fps;
-		if(attr.notfound(avattr_key::frame_video) &&
-			attr.notfound(avattr_key::width) &&
-			attr.notfound(avattr_key::height) &&
-			attr.notfound(avattr_key::pixel_format)&&
-			attr.notfound(avattr_key::fps)&&
-			attr.notfound(avattr_key::bitrate)&&
-			attr.notfound(avattr_key::gop)&&
-			attr.notfound(avattr_key::max_bframe) && 
-			attr.notfound(avattr_key::encoderid))
+		clear(target);
+		
+		if(!attr.notfound(avattr_key::frame_video) &&
+			!attr.notfound(avattr_key::width) &&
+			!attr.notfound(avattr_key::height) &&
+			!attr.notfound(avattr_key::pixel_format)&&
+			!attr.notfound(avattr_key::fps)&&
+			!attr.notfound(avattr_key::bitrate)&&
+			!attr.notfound(avattr_key::gop)&&
+			!attr.notfound(avattr_key::max_bframe) &&
+			!attr.notfound(avattr_key::encoderid))
 		{
 			type = AVMEDIA_TYPE_VIDEO;
 		}
@@ -53,8 +56,8 @@ private:
 			{
 				break;
 			}
-			_avcontext = avcodec_alloc_context3(codec);
-			if(!_avcontext)
+			target = avcodec_alloc_context3(codec);
+			if(!target)
 			{
 				break;
 			}
@@ -62,38 +65,52 @@ private:
 			{
 				fps.num = 1;
 				fps.den = attr.get_int(avattr_key::fps);
-				_avcontext->width = attr.get_int(avattr_key::width);
-				_avcontext->height = attr.get_int(avattr_key::height);
-				_avcontext->bit_rate = attr.get_int(avattr_key::bitrate);
-				_avcontext->time_base = fps;
-				_avcontext->gop_size = attr.get_int(avattr_key::gop);
-				_avcontext->max_b_frames = attr.get_int(avattr_key::max_bframe);
-				_avcontext->pix_fmt = (enum AVPixelFormat)attr.get_int(avattr_key::pixel_format);
+				target->width = attr.get_int(avattr_key::width);
+				target->height = attr.get_int(avattr_key::height);
+				target->bit_rate = attr.get_int(avattr_key::bitrate);
+				target->time_base = fps;
+				target->gop_size = attr.get_int(avattr_key::gop);
+				target->max_b_frames = attr.get_int(avattr_key::max_bframe);
+				target->pix_fmt = (enum AVPixelFormat)attr.get_int(avattr_key::pixel_format);
 				encode = avcodec_encode_video2;
 			}
 
-			if(avcodec_open2(_avcontext, codec, nullptr))
+			if(avcodec_open2(target, codec, nullptr))
 			{
 				break;
 			}
 			return true;
 		}while(0);
-		clear();
+		clear(target);
 		return false;
 	}
 public:
+	encoder() : 
+		_avcontext(nullptr),
+		_pts(0),
+		_pkt(avpacket_class())
+	{
+		/*for open test user*/
+	}
 	encoder(  const avattr &attr) : 
 		_avcontext(nullptr),
 		_pts(0),
 		_pkt(avpacket_class())
 	{
-		throw_if ti;
-		ti(!encoder_open_test(attr),
+		DECLARE_THROW(!encoder_open_test(attr, _avcontext),
 				"can't alloc encoder");
+	}
+	int parameter_open_test( const avattr &attr)
+	{
+		AVCodecContext *test_avcontext = nullptr;
+		bool res = false;
+	    res = encoder_open_test(attr, test_avcontext);
+		clear(test_avcontext);
+		return res ? 0 : -1;
 	}
 	virtual ~encoder()
 	{
-		clear();
+		clear(_avcontext);
 	}
 
 	template <typename functor>
@@ -101,6 +118,10 @@ public:
 			functor &&_f,
 			void *puser = nullptr)
 	{
+		if(!_avcontext)
+		{
+			return -1;
+		}
 		/*
 			none check valid parameter in frm.raw(), return error perhaps in encode funtion
 		*/

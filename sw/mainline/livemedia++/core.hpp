@@ -67,7 +67,6 @@ extern "C"
 #include <functional>
 
 #include "utils.hpp"
-#include "except.hpp"
 #include "livemedia++.hpp"
 #include "avattr.hpp"
 #include "media_data.hpp"
@@ -83,10 +82,9 @@ extern "C"
 #include "mediacontainer.hpp"
 #include "framescheduler.hpp"
 #include "uvc.hpp"
-
 #include "live5scheduler.hpp"
 #include "live5extsource.hpp"
-
+#include "live5ext_servermediasubsession.hpp"
 #include "live5rtspserver.hpp"
 #include "live5rtspclient.hpp"
 #include "mediaserver.hpp"

@@ -1,5 +1,7 @@
 #pragma once
 
+
+
 /*
  	 	 workqueue thread interface class
  */
@@ -17,11 +19,14 @@ struct _wthread_functor
 {
 
 	template <typename ...Args>
-	void operator () (workqueue *_wq,
+	void operator () (
+			char const *name,
+			workqueue *_wq,
 			function_workqueue_recv recv,
 			_dword time,
 			Args...args)
 	{
+		DECLARE_LIVEMEDIA_NAMEDTHREAD(name);
 
 		/*
 		 	 	 we create object to stack memory
@@ -56,7 +61,7 @@ private:
 			r = recv(_wq, &par, &size, qtime);
 			if(r == WQ_FAIL)
 			{
-				throw_if()(true, "workqueue has return fail");
+				DECLARE_THROW(true, "workqueue has return fail");
 			}
 
 			/*
@@ -72,6 +77,7 @@ class wthread
 private:
 	std::thread *_th;
 	workqueue *_wq;
+	char const *_wt_name;
 
 	/*
 	 	 	 get workqueue operation functions
@@ -86,6 +92,7 @@ public:
 	wthread( wthread &&rhs):
 		_th(nullptr),
 		_wq(NULL),
+		_wt_name(nullptr),
 		open(WQ_open),
 		close(WQ_close),
 		recv(WQ_recv),
@@ -93,9 +100,10 @@ public:
 	{
 		operator = (static_cast<wthread &&>(rhs));
 	}
-	wthread(_dword len, _dword size) :
+	wthread(_dword len, _dword size, char const *wt_name) :
 		_th(nullptr),
 		_wq(NULL),
+		_wt_name(wt_name),
 		open(WQ_open),
 		close(WQ_close),
 		recv(WQ_recv),
@@ -103,7 +111,7 @@ public:
 	{
 
 		_wq = open(size , len );
-		throw_if()(!_wq, "can't create workqueue");
+		DECLARE_THROW(!_wq, "can't create workqueue");
 
 	}
 	virtual ~wthread()
@@ -117,6 +125,7 @@ public:
 	 */
 	{
 		_th = new std::thread(_wthread_functor<_Class>(),
+				_wt_name,
 				_wq,
 				recv,
 				timeout,
@@ -147,9 +156,11 @@ public:
 	{
 		this->_th = rhs._th;
 		this->_wq = rhs._wq;
-
+		this->_wt_name = rhs._wt_name;
+		
 		rhs._th = nullptr;
 		rhs._wq = nullptr;
+		rhs._wt_name = nullptr;
 		return *this;
 
 	}

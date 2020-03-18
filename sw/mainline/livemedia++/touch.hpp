@@ -163,8 +163,7 @@ public:
 		_debounce_range(0)
 	{
 		_ts = ts_setup(nullptr, nonblock ? 1 : 0);
-		throw_if t;
-		t(!_ts, "can't setup tslib");
+		DECLARE_THROW(!_ts, "can't setup tslib");
 	}	
 	virtual ~touch()
 	{

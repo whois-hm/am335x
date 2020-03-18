@@ -14,7 +14,7 @@ public:
 		playback_inst(attr),
 		_uvc(nullptr)
 	{
-		throw_if ()(attr.notfound(avattr_key::frame_video));
+		DECLARE_THROW(attr.notfound(avattr_key::frame_video), "uvc playback can't found video frame");
 		_uvc = new uvc(name);
 		pause();
 	}
@@ -70,13 +70,13 @@ public:
 		int res = _uvc->waitframe(5000);
 		if(res > 0)
 		{
-			avframe_class frame;
-			if(_uvc->get(frame) > 0)
-			{
-				pixelframe pixf(*frame.raw());
 
-				swxcontext_class ((pixf), (_attr));
-				pixf >> output;
+			if(_uvc->get_videoframe([&](pixelframe &pix)->void{
+					swxcontext_class (pix, (_attr));
+					pix >> output;
+				}) <= 0)
+			{
+				res = -1;
 			}
 
 			if(!output.can_take())

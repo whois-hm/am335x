@@ -164,7 +164,7 @@ private:
 public:
 	gpio_manager(avfor_context  *avc,
 			ui *interface) :
-	wthread(10, sizeof(am335x_gpio_control:: par)),
+	wthread(10, sizeof(am335x_gpio_control:: par), "avfor gpio manager"),
 	manager(avc, interface),
 	_fd(-1)
 	{		

@@ -92,6 +92,20 @@ public:
 						second,
 						third));
 	}
+	void reset(char const *key, char const *str, int n, double d)
+	{
+		for(auto &it : _map)
+		{
+			if(it.first == key)
+			{
+			it.second = avattr_types(avattr_type_string(str), n, d);
+
+
+				break;
+			}
+		}
+			
+	}
 
 	/*
 	 	 get map

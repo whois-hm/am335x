@@ -45,20 +45,19 @@ private:
 	template <typename ...Args >
 	void loop(Args ...args)
 	{
-		throw_if ti;
 		_scheduler = BasicTaskScheduler::createNew();
-		ti(!_scheduler, "can't create live5 scheduler");
+		DECLARE_THROW(!_scheduler, "can't create live5 scheduler");
 
 		_env = BasicUsageEnvironment::createNew(*_scheduler);
-		ti(!_env, "can't create live5 environment");
+		DECLARE_THROW(!_env, "can't create live5 environment");
 		for(auto &it : _evts)
 		{
 			EventTriggerId &id = std::get<1>(it);
 			id = _scheduler->createEventTrigger(live5scheduler::live5event_function);
-			ti(id == 0, "can't create live5 eventtrigger");
+			DECLARE_THROW(id == 0, "can't create live5 eventtrigger");
 		}
 		_cal = new Callable(*_env, args...);
-		ti(!_cal, "can't create live5 callable");
+		DECLARE_THROW(!_cal, "can't create live5 callable");
 
 		SEMA_unlock(&_wait_sema);
 		_scheduler->doEventLoop(&_loop);
@@ -158,12 +157,14 @@ public:
 	{
 		if(at_another_thread)
 		{
-			throw_if ti;
 
-			ti(WQOK != SEMA_open(&_wait_sema, 0, 1), "can 't create semaphore");
+			DECLARE_THROW(WQOK != SEMA_open(&_wait_sema, 0, 1), "can 't create semaphore");
 
 			_th = new std::thread(
-					[&]()->void{ loop(args...);
+					[&]()->void{ 
+					DECLARE_LIVEMEDIA_NAMEDTHREAD("live5 scheduler");
+					loop(args...
+				);
 			});
 			SEMA_lock(&_wait_sema, INFINITE);
 			return;

@@ -262,8 +262,8 @@ class local_playback :
 				 	 	 we create first time copy constructor  and =
 				 */
 		}
-		streamer() :
-                        wthread(10, sizeof (stream::fucntor_par)){}
+		streamer(char const *name) :
+                        wthread(10, sizeof (stream::fucntor_par), name){}
 		virtual ~streamer()
 		{
 			stream::fucntor_par par;
@@ -321,22 +321,27 @@ public:
 
 
 		struct
-		{ bool has; const AVStream *stream; }
+		{ bool has; const AVStream *stream;char const *name; }
 		open_test[AVMEDIA_TYPE_NB] =
 		{
 				/*
 				 	 	 we can control 'audio' or 'video' current
 				 */
 				{_attr.has_frame_video(),
-						_mediacontainer.find_stream(AVMEDIA_TYPE_VIDEO)},
+						_mediacontainer.find_stream(AVMEDIA_TYPE_VIDEO),
+						"local playback video"},
 				{_attr.has_frame_audio(),
-						_mediacontainer.find_stream (AVMEDIA_TYPE_AUDIO)},
+						_mediacontainer.find_stream (AVMEDIA_TYPE_AUDIO),
+						"local playback audio"},
 				{false,
-						nullptr},
+						nullptr,
+						""},
 				{false,
-						nullptr},
+						nullptr,
+						""},
 				{false,
-						nullptr}
+						nullptr,
+						""}
 		};
 		for(unsigned i = 0; i < AVMEDIA_TYPE_NB; i++)
 		{
@@ -351,14 +356,14 @@ public:
 				 */
 				_streamers.insert(
 						std::make_pair((enum AVMediaType )i,
-								std::make_pair(new streamer(),
+								std::make_pair(new streamer(open_test[i].name),
 										new std::mutex())));/*framescheduler's data lock*/
 
 				_streamers[(enum AVMediaType )i].first->start(INFINITE, this, open_test[i].stream->codecpar);
 				_streamers[(enum AVMediaType )i].first->request_1frame();
 			}
 		}
-                throw_if()(_streamers.empty(), "can not found stream");
+                DECLARE_THROW(_streamers.empty(), "can not found stream");
 
 		pause();
 

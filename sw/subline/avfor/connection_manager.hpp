@@ -260,7 +260,7 @@ public:
 			return false;
 		}
 		_th = new std::thread([&]()->void{
-
+				DECLARE_LIVEMEDIA_NAMEDTHREAD("avfor connection manager");
 				while(1)
 				{
 					fdmon mon;
