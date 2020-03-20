@@ -427,9 +427,10 @@ static void signal_thread_function(void *p)
 	}
 	client_close_all();
 }
-
+#include <sys/prctl.h>
 int main()
 {
+	prctl(PR_SET_DUMPABLE, 1, 42,42,42);
 	printf("start avfor server\n");
 	cond(pipe(pipeline) < 0, "pipe open fail");
 

@@ -41,31 +41,28 @@ typedef std::pair<pcm,/*pcm data*/
 		> pcm_require;
 
 typedef std::function<void * (size_t)> base_allocator;
-#define __base__malloc__  malloc//libwq_malloc
+#define __base__malloc__ malloc// libwq_malloc
 
 typedef std::function<void (void *)> base_deallocator;
 #define __base__free__ free//libwq_free
 
-	
+
 inline void* operator new(std::size_t size)
 {
 	void *userblock = __base__malloc__(size);
-
 	return  userblock;
 }
 inline void* operator new[](std::size_t size)
 {
 	void *userblock = __base__malloc__(size);
-
 	return  userblock;
 }
 inline void operator delete(void *ptr)
 {
-
-	return __base__free__(ptr);
+	if(ptr) __base__free__(ptr);
 }
 inline void operator delete[](void *ptr)
-{ return __base__free__(ptr); }
+{ if(ptr) __base__free__(ptr); }
 
 
 

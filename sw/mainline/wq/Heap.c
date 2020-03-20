@@ -1,4 +1,6 @@
 #include "_WQ.h"
+
+
 #if defined (libwq_heap_testmode) && defined (_platform_linux32)
 static int get_process(char *buffer, unsigned nbuffer)
 {
@@ -273,10 +275,10 @@ static void __remove_exception_handler(int except)
 	/*
 	 	 no case else
 	 */
-	void *backtrace_addr [5] = { NULL, };
+	void *backtrace_addr [10] = { NULL, };
 	int size = 0;
 
-	size = backtrace(backtrace_addr, 5);
+	size = backtrace(backtrace_addr, 10);
 	printf("libwq heap detection (%s)\n", case_what);
 	if(size > 0)
 	{
@@ -308,6 +310,7 @@ void __remove_page(char *ptr_usr)
 			 	 null ptr require
 			 */
 			except = -1;
+			break;
 		}
 		if(__unlink_page(ptr_usr) < 0)
 		{

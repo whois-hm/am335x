@@ -40,13 +40,18 @@ private:
 	}
 	void dogetnextframe_from_buffer()
 	{
-		//return get();
+		return get();
 	}
+
 	void get()
 	{
+		if(!isCurrentlyAwaitingData())
+		{
+
+			return;
+		}
+
 		_lock.lock();
-
-
 		/*
 			calculate read avail
 		*/
@@ -56,6 +61,11 @@ private:
 		fFrameSize = read_avail_size >= read_reqeust_size ? read_reqeust_size : read_avail_size;
 		fNumTruncatedBytes = read_reqeust_size >= fFrameSize ? read_reqeust_size - fFrameSize : 0;
 		remain_size = read_avail_size - fFrameSize;
+		if(!fFrameSize)
+		{
+			_lock.unlock();
+			return;
+		}
 
 		/*
 			copy data to source or sink.
@@ -69,7 +79,7 @@ private:
 
 
 		_bufferindx = remain_size;
-		if(fFrameSize)printf("framesize = %d request size = %d remain size = %d truncatebyte = %d\n", fFrameSize,read_reqeust_size, remain_size, fNumTruncatedBytes);
+		//printf("framesize = %d request size = %d remain size = %d truncatebyte = %d\n", fFrameSize,read_reqeust_size, remain_size, fNumTruncatedBytes);
 		/*
 			wake up 'put' thread if sleep
 		*/
@@ -87,7 +97,7 @@ private:
 		/*
 			deliver to aftergetting function ptr
 		*/
-		FramedSource::afterGetting(this);		
+		FramedSource::afterGetting(this);
 
 	}
 protected:
@@ -95,6 +105,7 @@ protected:
 	{
 		/*	stop.
 			we offered next frame by event trigger 'dogetnextframe_from_bufer'
+			just save 'FramedSource::afterGetting(this);'s parameter, or start flag
 		*/
 		get();
 	}
@@ -140,7 +151,6 @@ protected:
 			/*
 				invalid parameter
 			*/
-			unsigned zsize = nptr;
 			unsigned usrindx = 0;
 			while(nptr > 0 && 
 				ptr)
@@ -175,8 +185,8 @@ protected:
 				if success writing in the buffer,
 				signal sending to scheudler for calling 'get()'
 			*/
-		//	if(usrindx)
-			//	envir().taskScheduler().triggerEvent(_id, this);
+		if(usrindx)
+				envir().taskScheduler().triggerEvent(_id, this);
 		}
 };
 
@@ -196,6 +206,11 @@ private:
 	std::thread *_thread_uvc;
 	encoder *_enc;
 	bool _bloop;
+	/*
+	 	 this flag controled by one thread 'live555 scheduler.
+	 	 this flag use for 'stream_lock' one controled
+	 */
+	bool _bgetnextframe;
 	std::mutex _stream_lock;
 	avattr _attr;
 
@@ -210,7 +225,8 @@ public:
 #endif
 			_thread_uvc(nullptr),
 			_enc(nullptr),
-			_bloop(true)
+			_bloop(true),
+			_bgetnextframe(false)
 	{
 	/*
 		
@@ -244,36 +260,38 @@ public:
 					_attr.reset(avattr_key::pixel_format, avattr_key::pixel_format, (int)AV_PIX_FMT_YUV420P, 0.0);
 				}				
 			}
-
 			
 			_enc = new encoder(_attr);
+			/*
+			 	 first _bgetnextframe(false)
+			 */
 			_stream_lock.lock();
 			_thread_uvc = new std::thread([&]()->void{
 				DECLARE_LIVEMEDIA_NAMEDTHREAD("live5extsource_uvc");
-					while(_bloop)
+					while(1)
 					{						
 						autolock a(_stream_lock);
-
-
-				
-						Time_sleep(100);
-
-						int res = _uvc->waitframe(5000);
-
-
-						if(res > 0)
+						if(!_bloop)
 						{
-							
-							_uvc->get_videoframe([&](pixelframe &pix)->void{
-							
-									swxcontext_class (pix, _attr);
-
-									int res = _enc->encoding(pix,(*this));
-	
-
-								});
-
+							break;
 						}
+
+						int res = _uvc->waitframe(10000);
+						/*
+						 	 because enough time for get video,
+						 	 return value invalid has mean that uvc error....
+						 */
+						DECLARE_THROW(res <= 0, "source uvc has broken");
+						printf("get uvc frame : %u\n", sys_time_c());
+
+						_uvc->get_videoframe([&](pixelframe &pix)->void{
+
+								swxcontext_class (pix, _attr);
+
+								int res = _enc->encoding(pix,(*this));
+
+
+							});
 					}
 				});	
 #endif
@@ -294,26 +312,45 @@ public:
 	}
 		void operator()(avframe_class &frm, avpacket_class &pkt,void * )
 	{
-	/*
-		put data to scheduler
-	*/
-
+		/*
+			put data to scheduler.
+			called another thread
+		*/
+			printf("put frame try: size = %d\n", pkt.raw()->size);
 		live5extsource::put(pkt.raw()->data, pkt.raw()->size);
+		printf("put framed : size = %d\n", pkt.raw()->size);
 	}
 	virtual void doGetNextFrame()
 	{
 		/*	
 			we use this function that start frame flag
 		*/
-		if(!_stream_lock.try_lock())
+		if(!_bgetnextframe)
+		{
+			/*
+			 	 wake up thread
+			 */+
+			printf("dogetnextframe\n");
 			_stream_lock.unlock();
+			_bgetnextframe = true;
+		}
 		
+		/*semantic code. nothing work*/
 		live5extsource::doGetNextFrame();
 	}
 	virtual void doStopgGttingFrames()
 	{
+
+		if(_bgetnextframe)
+		{
+			/*
+			 	 sleep thread
+			 */
+			printf("dostopgettingframe\n");
+			_bgetnextframe = false;
+			_stream_lock.lock();
+		}
 		live5extsource::doStopGettingFrames();
-		_stream_lock.lock();
 	}
 	bool has_video()
 	{

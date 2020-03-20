@@ -94,7 +94,7 @@ public:
 			Port ourPort = 554,	/*our server port*/
 			char const *usrid = nullptr,/*server's authentication*/
 			char const *usrpwd = nullptr,/*server's authentication*/
-		    unsigned reclamationSeconds = 65) :
+		    unsigned reclamationSeconds = 0/*infinite service to client*/) :
 		    RTSPServer(env,
 		    GenericMediaServer::setUpOurSocket(env, ourPort),
 			 ourPort,

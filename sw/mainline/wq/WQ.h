@@ -43,7 +43,7 @@
 #endif
 #endif
 
-//#define libwq_heap_testmode
+#define libwq_heap_testmode
 #include  <stdio.h>
 #include <stdlib.h>
 #include <string.h>

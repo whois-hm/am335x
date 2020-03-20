@@ -33,7 +33,6 @@ private:
 			int res = pipe(_pipe);
 			if(res < 0)
 			{
-				printf("pipe open fail\n");
 				goto fail;
 			}
 			desc.index = indx;
@@ -49,24 +48,20 @@ private:
 			fd = open(_dev, O_RDWR | O_NONBLOCK , 0);
 			if(fd < 0)
 			{
-				printf("device : %s  open fail\n", _dev);
 				goto fail;
 			}
 			if(xioctl(fd, VIDIOC_QUERYCAP, &cap))
 			{
-				printf("can't get vidioc query\n");
 				goto fail;
 			}
 			if(!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE))
 			{
-				printf("can't find video capture\n");
 				goto fail;
 			}
 			if(cap.capabilities & V4L2_CAP_STREAMING)	 _video_capture_mode = 0;
 			else if(cap.capabilities & V4L2_CAP_READWRITE)	 _video_capture_mode = 1;
 			else
 			{
-				printf("can't find video capture\n");
 				goto fail;
 			}
 
@@ -88,7 +83,6 @@ private:
 			
 			if(xioctl(fd, VIDIOC_G_FMT, &format))
 			{
-				printf("can't get format\n");
 				goto fail;
 			}
 
@@ -96,7 +90,6 @@ private:
 			
 			if(format.fmt.pix.pixelformat != _support_fourcc)
 			{
-				printf("no support video format...\n");
 				goto fail;
 			}
 			while(!(xioctl(fd, VIDIOC_ENUM_FMT, &desc)))
@@ -111,7 +104,6 @@ private:
 			}
 			if(!bfmt)
 			{
-				printf("no support video format...\n");
 				goto fail;
 			}
 
@@ -123,12 +115,10 @@ private:
 			{
 				if((xioctl(fd, VIDIOC_REQBUFS, &req)))
 				{
-					printf("can't request qbuffers\n");
 					goto fail;
 				}
 				if(req.count < 2)
 				{
-					printf("request qbuffer has too short\n");
 					goto fail;
 				}
 				for(int i = 0; i < req.count; i++)
@@ -139,13 +129,11 @@ private:
 					buf.index = i;
 					if(xioctl(fd, VIDIOC_QUERYBUF, &buf))
 					{
-						printf("can't get query buffer\n");
 						goto fail;
 					}
 					void *ptr = mmap(NULL, buf.length, (PROT_READ | PROT_WRITE), MAP_SHARED, fd, buf.m.offset);
 					if(MAP_FAILED == ptr)
 					{
-						printf("mmap frame fail\n");
 						goto fail;
 					}
 					_videoframes.push_back(std::make_pair(ptr, buf.length));
@@ -167,7 +155,6 @@ private:
 				void *ptr = __base__malloc__(format.fmt.pix.sizeimage);
 				if(!ptr)
 				{
-					printf("frame malloc fail\n");
 					goto fail;
 				}
 				_videoframes.push_back(std::make_pair(ptr, format.fmt.pix.sizeimage));
@@ -178,7 +165,6 @@ private:
 			_byteper_line = format.fmt.pix.bytesperline;
 			_byteper_frame = format.fmt.pix.sizeimage;
 			_video_buffer_count = _videoframes.size();
-			printf("uvc open %s %d (%d x %d)\n", _dev, fd, _video_width, _video_height);
 			return fd;
 		}while(0);
 
@@ -253,7 +239,6 @@ fail:
 	bool streamon()
 	{
 		struct v4l2_buffer buf;
-		printf("stream on 0\n");
 		if(_ing)
 		{
 			return true;
@@ -270,7 +255,6 @@ fail:
 				return false;
 			}
 		}
-		printf("stream on 1\n");
 
 		enum v4l2_buf_type type;
 		type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -278,7 +262,6 @@ fail:
 		{
 			return false;
 		}
-		printf("stream on 3\n");
 		_ing = true;
 		return true;
 	}
