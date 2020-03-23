@@ -8,6 +8,19 @@
 
 class live5extsource : public FramedSource
 {
+
+protected:
+	void buffer_clear()
+	{
+		_lock.lock();
+		_bufferindx = 0;
+		if(_putis_lock)
+		{
+			SEMA_unlock(&_lock_put);
+			_putis_lock = false;
+		}
+		_lock.unlock();
+	}
 private:
 	/*
 	
@@ -70,9 +83,7 @@ private:
 		/*
 			copy data to source or sink.
 		*/
-
-		if(fFrameSize)
-			memcpy(fTo, _buffer, fFrameSize);
+		memcpy(fTo, _buffer, fFrameSize);
 
 		if(remain_size)
 			memcpy(_buffer, _buffer + fFrameSize, remain_size);
@@ -86,6 +97,7 @@ private:
 		if(_putis_lock)
 		{
 			SEMA_unlock(&_lock_put);
+			_putis_lock = false;
 		}
 		_lock.unlock();
 
@@ -117,15 +129,11 @@ protected:
 	public:
 		virtual ~live5extsource()
 		{
-			_lock.lock();
 			/*
 				wake up 'put' thread if sleep
 			*/
-			if(_putis_lock)
-			{
-				SEMA_unlock(&_lock_put);
-			}
-			_lock.unlock();
+			buffer_clear();
+
 			__base__free__(_buffer);
 			envir().taskScheduler().deleteEventTrigger(_id);
 		}
@@ -245,7 +253,7 @@ public:
 			_attr.set(avattr_key::bitrate, avattr_key::bitrate, 400000, 0.0);
 			_attr.set(avattr_key::gop, avattr_key::gop, 10, 0.0);
 			_attr.set(avattr_key::max_bframe, avattr_key::max_bframe, 1, 0.0);
-			_attr.set(avattr_key::encoderid, avattr_key::encoderid, (int)AV_CODEC_ID_H264, 0.0);
+			_attr.set(avattr_key::video_encoderid, avattr_key::video_encoderid, (int)AV_CODEC_ID_H264, 0.0);
 
 			{
 				/*
@@ -282,24 +290,29 @@ public:
 						 	 return value invalid has mean that uvc error....
 						 */
 						DECLARE_THROW(res <= 0, "source uvc has broken");
-						printf("get uvc frame : %u\n", sys_time_c());
+
 
 						_uvc->get_videoframe([&](pixelframe &pix)->void{
-
-								swxcontext_class (pix, _attr);
-
+								{
+									swxcontext_class (pix, _attr);
+								}
 								int res = _enc->encoding(pix,(*this));
-
-
 							});
+
+
+
+					
 					}
 				});	
 #endif
 	}
 	virtual ~live5extsource_uvc()
 	{
-		_stream_lock.unlock();
 		_bloop = false;
+
+		wakeup_threaduvc();
+		wakeup_threaduvc_if_puting();
+
 		if(_thread_uvc)
 		{
 			_thread_uvc->join();
@@ -310,17 +323,7 @@ public:
 #endif
 		if(_enc) delete _enc;
 	}
-		void operator()(avframe_class &frm, avpacket_class &pkt,void * )
-	{
-		/*
-			put data to scheduler.
-			called another thread
-		*/
-			printf("put frame try: size = %d\n", pkt.raw()->size);
-		live5extsource::put(pkt.raw()->data, pkt.raw()->size);
-		printf("put framed : size = %d\n", pkt.raw()->size);
-	}
-	virtual void doGetNextFrame()
+	void wakeup_threaduvc()
 	{
 		/*	
 			we use this function that start frame flag
@@ -329,27 +332,43 @@ public:
 		{
 			/*
 			 	 wake up thread
-			 */+
-			printf("dogetnextframe\n");
+			 */
 			_stream_lock.unlock();
 			_bgetnextframe = true;
 		}
-		
-		/*semantic code. nothing work*/
-		live5extsource::doGetNextFrame();
 	}
-	virtual void doStopgGttingFrames()
+	void wakeup_threaduvc_if_puting()
 	{
-
+		buffer_clear();
+	}
+	void sleep_threaduvc()
+	{
 		if(_bgetnextframe)
 		{
 			/*
 			 	 sleep thread
 			 */
-			printf("dostopgettingframe\n");
 			_bgetnextframe = false;
 			_stream_lock.lock();
 		}
+	}
+	void operator()(avframe_class &frm, avpacket_class &pkt,void * )
+	{
+		/*
+			put data to scheduler.
+			called another thread
+		*/
+		live5extsource::put(pkt.raw()->data, pkt.raw()->size);
+	}
+	virtual void doGetNextFrame()
+	{
+		wakeup_threaduvc();
+		/*semantic code. nothing work*/
+		live5extsource::doGetNextFrame();
+	}
+	virtual void doStopgGttingFrames()
+	{
+		sleep_threaduvc();
 		live5extsource::doStopGettingFrames();
 	}
 	bool has_video()
@@ -386,7 +405,7 @@ public:
 	}
 	enum AVCodecID video_codec()
 	{
-		return (enum AVCodecID)_attr.get_int(avattr_key::encoderid,-1);
+		return (enum AVCodecID)_attr.get_int(avattr_key::video_encoderid,-1);
 	}
 };
 

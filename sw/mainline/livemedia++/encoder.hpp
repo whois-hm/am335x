@@ -37,7 +37,7 @@ private:
 			!attr.notfound(avattr_key::bitrate)&&
 			!attr.notfound(avattr_key::gop)&&
 			!attr.notfound(avattr_key::max_bframe) &&
-			!attr.notfound(avattr_key::encoderid))
+			!attr.notfound(avattr_key::video_encoderid))
 		{
 			type = AVMEDIA_TYPE_VIDEO;
 		}
@@ -51,33 +51,36 @@ private:
 
 		do
 		{
-			codec = avcodec_find_encoder((enum AVCodecID)attr.get_int(avattr_key::encoderid));
-			if(!codec)
-			{
-				break;
-			}
-			target = avcodec_alloc_context3(codec);
-			if(!target)
-			{
-				break;
-			}
+
 			if(type == AVMEDIA_TYPE_VIDEO)
 			{
-				fps.num = 1;
-				fps.den = attr.get_int(avattr_key::fps);
-				target->width = attr.get_int(avattr_key::width);
-				target->height = attr.get_int(avattr_key::height);
-				target->bit_rate = attr.get_int(avattr_key::bitrate);
-				target->time_base = fps;
-				target->gop_size = attr.get_int(avattr_key::gop);
-				target->max_b_frames = attr.get_int(avattr_key::max_bframe);
-				target->pix_fmt = (enum AVPixelFormat)attr.get_int(avattr_key::pixel_format);
-				encode = avcodec_encode_video2;
-			}
+				codec = avcodec_find_encoder((enum AVCodecID)attr.get_int(avattr_key::video_encoderid));
+				if(!codec)
+				{
+					break;
+				}
+				target = avcodec_alloc_context3(codec);
+				if(!target)
+				{
+					break;
+				}
 
-			if(avcodec_open2(target, codec, nullptr))
-			{
-				break;
+					fps.num = 1;
+					fps.den = attr.get_int(avattr_key::fps);
+					target->width = attr.get_int(avattr_key::width);
+					target->height = attr.get_int(avattr_key::height);
+					target->bit_rate = attr.get_int(avattr_key::bitrate);
+					target->time_base = fps;
+					target->gop_size = attr.get_int(avattr_key::gop);
+					target->max_b_frames = attr.get_int(avattr_key::max_bframe);
+					target->pix_fmt = (enum AVPixelFormat)attr.get_int(avattr_key::pixel_format);
+					encode = avcodec_encode_video2;
+				
+
+				if(avcodec_open2(target, codec, nullptr))
+				{
+					break;
+				}
 			}
 			return true;
 		}while(0);
@@ -108,6 +111,10 @@ public:
 		clear(test_avcontext);
 		return res ? 0 : -1;
 	}
+	AVCodecContext *raw()
+	{
+		return _avcontext;
+	}
 	virtual ~encoder()
 	{
 		clear(_avcontext);
@@ -134,12 +141,12 @@ public:
 		{
 			frm.raw()->pts = _pts++;
 		}
-		encoded = encode(_avcontext, _pkt.raw(), frm.raw(), &got);
+		encoded = encode(_avcontext, _pkt.raw(), frm.raw(), &got);	
 		if(got&&
 			encoded >= 0)
 		{
 			_f(frm, _pkt, puser);
-			_pkt = avpacket_class();/*unref*/
+			_pkt.unref();
 		}
 
 		if(got) return 1;

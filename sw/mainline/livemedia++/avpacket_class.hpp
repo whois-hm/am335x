@@ -15,10 +15,21 @@ public:
 
 		av_packet_ref(&_pkt, &const_cast<AVPacket &>(pkt));
 	}
+	avpacket_class(   AVPacket &&pkt )
+	{
+		av_init_packet(&_pkt);
+
+		av_packet_move_ref(&_pkt, &const_cast<AVPacket &>(pkt));
+	}
 	avpacket_class(   const avpacket_class &pkt )
 	{
 		av_init_packet(&_pkt);
 		av_packet_ref(&_pkt, &const_cast<AVPacket &>(pkt._pkt));
+	}
+	avpacket_class(   avpacket_class &&pkt )
+	{
+		av_init_packet(&_pkt);
+		av_packet_move_ref(&_pkt, &const_cast<AVPacket &>(pkt._pkt));
 	}
 	virtual ~avpacket_class()
 	{
@@ -30,10 +41,22 @@ public:
 		av_packet_ref(&_pkt, &const_cast<AVPacket &>(pkt._pkt));
 		return *this;
 	}
+	avpacket_class &operator = (avpacket_class &&pkt)
+	{
+		unref();
+		av_packet_move_ref(&_pkt, &const_cast<AVPacket &>(pkt._pkt));
+		return *this;
+	}
 	avpacket_class &operator = (const  AVPacket &pkt)
 	{
 		unref();
 		av_packet_ref(&_pkt, &const_cast<AVPacket &>(pkt));
+		return *this;
+	}
+	avpacket_class &operator = (AVPacket &&pkt)
+	{
+		unref();
+		av_packet_move_ref(&_pkt, &const_cast<AVPacket &>(pkt));
 		return *this;
 	}
 	AVPacket *raw()

@@ -24,8 +24,8 @@ namespace avattr_key
 	static constexpr char const * const samplerate = "samplerate";
 	static constexpr char const * const pcm_format= "pcm format";
 
-	static constexpr char const * const encoderid= "encoder id";
-
+	static constexpr char const * const video_encoderid= "video encoder id";
+	static constexpr char const * const audio_encoderid= "audio encoder id";
 	static constexpr char const * const fps= "fps";
 	static constexpr char const * const bitrate= "bitrate";
 	static constexpr char const * const gop= "gop";
@@ -158,6 +158,17 @@ public:
 			}
 		}
 		return def;
+	}
+	avattr_types  get(char const *key)
+	{
+		for(auto &it : _map)
+		{
+			if(it.first == key)
+			{
+				return (it.second);
+			}
+		}
+		return avattr_types();		
 	}
 
 

@@ -274,7 +274,7 @@ public:
 		avcodec_register_all();
 		av_register_all();
 		av_lockmgr_register(ffmpeg_lockmgr) ;
-		throw_register_sys_except();
+	//	throw_register_sys_except();
 	}
 	virtual ~livemedia_pp()
 	{

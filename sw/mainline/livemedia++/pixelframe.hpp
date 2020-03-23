@@ -30,6 +30,11 @@ public:
 		void *p) : 
 		avframe_class_type()
 	{
+	DECLARE_THROW(width <= 0, "pixelframe invalid width");
+	DECLARE_THROW(height <= 0, "pixelframe invalid height");
+	DECLARE_THROW(fmt < 0, "pixelframe invalid format");
+	DECLARE_THROW(!p, "pixelframe invalid data pointer");
+	
 	
 		raw()->width = width;
 		raw()->height = height;
