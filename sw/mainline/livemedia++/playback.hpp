@@ -79,6 +79,8 @@ public:
 
 	virtual ~playback()
 	{ if(_inst)delete _inst;_inst = nullptr;}
+	void record(char const *file = nullptr)
+	{ _inst->record(file); }
 	void pause()
 	{_inst->pause();}
 	void resume(bool closing = false)

@@ -298,7 +298,7 @@ private:
 						std::get<1>(_rect),
 						std::get<2>(_rect),
 						std::get<3>(_rect),
-						SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS);
+						SDL_WINDOW_SHOWN );
 					_render = SDL_CreateRenderer(_window, -1, 0);
 					SDL_SetRenderDrawColor(_render,
 						0, 0, 0, 255);

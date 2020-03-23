@@ -709,6 +709,10 @@ public:
 		}
 		return true;
 	}
+	void record(char const *file)
+	{
+
+	}
 	virtual void pause()
 	{
 		if(_state == rtsp_playback_state_open)

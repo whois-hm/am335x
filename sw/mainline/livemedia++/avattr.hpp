@@ -69,6 +69,7 @@ public:
 				std::make_pair(avattr_type_string(key),
 				value));
 	}
+
 	void set(avattr_type_string &key,
 			avattr_type_string &first,
 			const avattr_type_int second,

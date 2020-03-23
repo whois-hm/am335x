@@ -383,6 +383,10 @@ public:
 	{
 		return _framescheduler.get_clock_master();
 	}
+	void record(char const *file)
+	{
+
+	}
 	void pause()
 	{
 		/*

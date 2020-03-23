@@ -218,24 +218,32 @@ public:
 			if(e.user()->_code == custom_code_section_connection_recv_command)
 			{
 				int seekvalue = 0;
+				char str[256] = {0, };
 
 				if(!strcmp("pause", (char *)e.user()->_ptr))
 				{
 					_play->pause();
 				}
-				if(!strcmp("resume", (char *)e.user()->_ptr))
+				else if(!strcmp("resume", (char *)e.user()->_ptr))
 				{
 					_play->resume();
 				}
-				if(!strcmp("play", (char *)e.user()->_ptr))
+				else if(!strcmp("play", (char *)e.user()->_ptr))
 				{
 					_play->play();
 				}
-				if(1==sscanf((char *)e.user()->_ptr, "seek %d", &seekvalue))
+				else if(1==sscanf((char *)e.user()->_ptr, "seek %d", &seekvalue))
 				{
 					_play->seek((double)seekvalue);
 				}
-
+				else if(!strcmp("record stop", (char *)e.user()->_ptr))
+				{
+					_play->record(nullptr);
+				}
+				else if(1==sscanf((char *)e.user()->_ptr, "record start %s", str))
+				{
+					_play->record(str);
+				}
 			}
 		}
 	}

@@ -10,19 +10,19 @@ class mediacontainer_record
 			/*
 				calculate presentation time
 			*/
-			av_packet_rescale_ts(&pkt, 
-				_enc[AVMEDIA_TYPE_VIDEO].raw()->time_base, 
-				_stm[AVMEDIA_TYPE_VIDEO].time_base);
+			av_packet_rescale_ts(pkt.raw(),
+					record->_enc[AVMEDIA_TYPE_VIDEO]->raw()->time_base,
+					record->_stm[AVMEDIA_TYPE_VIDEO]->time_base);
 
 			/*
 				stream index = video
 			*/
-			pkt.stream_index = _stm[AVMEDIA_TYPE_VIDEO].index;
+			pkt.raw()->stream_index = record->_stm[AVMEDIA_TYPE_VIDEO]->index;
 
 			/*
 				write to context
 			*/
-			avinterleaved_write_frame(record->_context, pkt);			
+			av_interleaved_write_frame(record->_context, pkt.raw());
 		}
 	};
 	struct encoder_audio_functor
@@ -34,20 +34,19 @@ class mediacontainer_record
 			/*
 				calculate presentation time
 			*/
-			
-			av_packet_rescale_ts(&pkt, 
-				_enc[AVMEDIA_TYPE_AUDIO].raw()->time_base, 
-				_stm[AVMEDIA_TYPE_AUDIO].time_base);
+			av_packet_rescale_ts(pkt.raw(),
+					record->_enc[AVMEDIA_TYPE_AUDIO]->raw()->time_base,
+					record->_stm[AVMEDIA_TYPE_AUDIO]->time_base);
 
 			/*
 				stream index = audio
 			*/
-			pkt.stream_index = _stm[AVMEDIA_TYPE_AUDIO].index;
-			
+			pkt.raw()->stream_index = record->_stm[AVMEDIA_TYPE_AUDIO]->index;
+
 			/*
 				write to context
 			*/
-			avinterleaved_write_frame(record->_context, pkt);			
+			av_interleaved_write_frame(record->_context, pkt.raw());
 		}
 	};
 private:
@@ -61,6 +60,7 @@ private:
 	bool attr_hasvideo_stream()
 	{
 		return (	/*encode parameters check*/
+		!_attr[AVMEDIA_TYPE_VIDEO].notfound(avattr_key::frame_video) &&
 		!_attr[AVMEDIA_TYPE_VIDEO].notfound(avattr_key::width) &&
 		!_attr[AVMEDIA_TYPE_VIDEO].notfound(avattr_key::height) &&
 		!_attr[AVMEDIA_TYPE_VIDEO].notfound(avattr_key::pixel_format)&&
@@ -69,11 +69,13 @@ private:
 		!_attr[AVMEDIA_TYPE_VIDEO].notfound(avattr_key::gop)&&
 		!_attr[AVMEDIA_TYPE_VIDEO].notfound(avattr_key::max_bframe) &&
 		!_attr[AVMEDIA_TYPE_VIDEO].notfound(avattr_key::video_encoderid));
+
 	}
 	bool attr_hasaudio_stream()
 	{
 	
 		return (	/*encode parameters check*/
+		!_attr[AVMEDIA_TYPE_AUDIO].notfound(avattr_key::frame_audio) &&
 		!_attr[AVMEDIA_TYPE_AUDIO].notfound(avattr_key::channel) &&
 		!_attr[AVMEDIA_TYPE_AUDIO].notfound(avattr_key::samplerate) &&
 		!_attr[AVMEDIA_TYPE_AUDIO].notfound(avattr_key::pcm_format)&&
@@ -98,33 +100,35 @@ private:
 			return 0;
 		}
 		avattr copy ;
+		copy.set(avattr_key::frame_video,
+				_attr[AVMEDIA_TYPE_VIDEO].get(avattr_key::frame_video));
 		copy.set(avattr_key::width,
-			_attr.get(avattr_key::width));
+				_attr[AVMEDIA_TYPE_VIDEO].get(avattr_key::width));
 		copy.set(avattr_key::height,
-			_attr.get(avattr_key::height));
+				_attr[AVMEDIA_TYPE_VIDEO].get(avattr_key::height));
 		copy.set(avattr_key::pixel_format, 
-			_attr.get(avattr_key::pixel_format));
+				_attr[AVMEDIA_TYPE_VIDEO].get(avattr_key::pixel_format));
 		copy.set(avattr_key::fps,
-			_attr.get(avattr_key::fps));
+				_attr[AVMEDIA_TYPE_VIDEO].get(avattr_key::fps));
 		copy.set(avattr_key::bitrate,
-			_attr.get(avattr_key::bitrate));
+				_attr[AVMEDIA_TYPE_VIDEO].get(avattr_key::bitrate));
 		copy.set(avattr_key::gop,
-			_attr.get(avattr_key::gop));
+				_attr[AVMEDIA_TYPE_VIDEO].get(avattr_key::gop));
 		copy.set(avattr_key::max_bframe,
-			_attr.get(avattr_key::max_bframe));
+				_attr[AVMEDIA_TYPE_VIDEO].get(avattr_key::max_bframe));
 		copy.set(avattr_key::video_encoderid,
-			_attr.get(avattr_key::video_encoderid));
+				_attr[AVMEDIA_TYPE_VIDEO].get(avattr_key::video_encoderid));
 
 		/*
 			current no open test
 		*/
-		encoder[AVMEDIA_TYPE_VIDEO] = new encoder(copy);
+		_enc[AVMEDIA_TYPE_VIDEO] = new encoder(copy);
 		
 		if(_context->oformat->flags & AVFMT_GLOBALHEADER)
 		{
-			encoder[AVMEDIA_TYPE_VIDEO]->raw()->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+			_enc[AVMEDIA_TYPE_VIDEO]->raw()->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 		}
-		*/
+
 
 		if(make_stream(_stm[AVMEDIA_TYPE_VIDEO]) < 0)
 		{
@@ -132,7 +136,7 @@ private:
 		}
 		
 		return avcodec_parameters_from_context(_stm[AVMEDIA_TYPE_VIDEO]->codecpar, 
-			encoder[AVMEDIA_TYPE_VIDEO]->raw()) < 0 ? 
+			_enc[AVMEDIA_TYPE_VIDEO]->raw()) < 0 ?
 			-1 : 1;
 		
 	}
@@ -144,23 +148,23 @@ private:
 		}
 		avattr copy ;
 		copy.set(avattr_key::channel,
-			_attr.get(avattr_key::channel));
+				_attr[AVMEDIA_TYPE_AUDIO].get(avattr_key::channel));
 		copy.set(avattr_key::samplerate,
-			_attr.get(avattr_key::samplerate));
+				_attr[AVMEDIA_TYPE_AUDIO].get(avattr_key::samplerate));
 		copy.set(avattr_key::pcm_format, 
-			_attr.get(avattr_key::pcm_format));
+				_attr[AVMEDIA_TYPE_AUDIO].get(avattr_key::pcm_format));
 		copy.set(avattr_key::bitrate,
-			_attr.get(avattr_key::bitrate));
+				_attr[AVMEDIA_TYPE_AUDIO].get(avattr_key::bitrate));
 		copy.set(avattr_key::audio_encoderid,
-			_attr.get(avattr_key::audio_encoderid));
+				_attr[AVMEDIA_TYPE_AUDIO].get(avattr_key::audio_encoderid));
 		/*
 			current no open test
 		*/
-		encoder[AVMEDIA_TYPE_AUDIO] = new encoder(copy);
+		_enc[AVMEDIA_TYPE_AUDIO] = new encoder(copy);
 		
 		if(_context->oformat->flags & AVFMT_GLOBALHEADER)
 		{
-			encoder[AVMEDIA_TYPE_AUDIO]->raw()->flag |= AV_CODEC_FLAG_GLOBAL_HEADER;
+			_enc[AVMEDIA_TYPE_AUDIO]->raw()->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 		}
 		if(make_stream(_stm[AVMEDIA_TYPE_AUDIO]) < 0)
 		{
@@ -168,7 +172,7 @@ private:
 		}
 		
 		return avcodec_parameters_from_context(_stm[AVMEDIA_TYPE_AUDIO]->codecpar, 
-			encoder[AVMEDIA_TYPE_AUDIO]->raw()) < 0 ? 
+				_enc[AVMEDIA_TYPE_AUDIO]->raw()) < 0 ?
 			-1 : 1;
 	}
 	int open_io()
@@ -180,7 +184,7 @@ private:
 		{
 			return -1;
 		}
-		if(!(_context->oformat & AVFMT_NOFILE))
+		if(!(_context->oformat->flags & AVFMT_NOFILE))
 		{
 			if(avio_open(&_context->pb, _context->filename, AVIO_FLAG_WRITE) < 0)
 			{
@@ -194,7 +198,7 @@ private:
 		return 1;
 	}
 
-	int compare_ts(enum AVMedia_Type type)
+	int compare_ts(enum AVMediaType type)
 	{
 		/*0 mean that save packet for presentation  time*/
 		/*1 mean that write flag directly */
@@ -202,7 +206,7 @@ private:
 			if use 2 stream. compare presentation time
 		*/
 		if(_enc[AVMEDIA_TYPE_VIDEO] && 
-			_enc[AVMEDIA_TYPE_AUDIO]))
+			_enc[AVMEDIA_TYPE_AUDIO])
 		{
 			if(type == AVMEDIA_TYPE_VIDEO)
 			{
@@ -231,6 +235,7 @@ private:
 		*/
 		while(1)
 		{
+			bool effected = false;
 			if(_pixel_frm.size() > 0 &&
 				compare_ts(AVMEDIA_TYPE_VIDEO) > 0)
 			{
@@ -238,14 +243,20 @@ private:
 				it.raw()->pts = _pts[it.type()]++;
 				_enc[it.type()]->encoding(it,encoder_video_functor(), this);
 				_pixel_frm.pop_front();
+				effected = true;
 			}
 			if(_pcm_frm.size() > 0 &&
 				compare_ts(AVMEDIA_TYPE_AUDIO) > 0)
 			{
 				auto &it = _pcm_frm.front();
-				it.rafw()->pts = _pts[it.type()]++;				
+				it.raw()->pts = _pts[it.type()]++;
 				_enc[it.type()]->encoding(it,encoder_audio_functor(), this);
 				_pcm_frm.pop_front();
+				effected = true;
+			}
+			if( !effected )
+			{
+				break;
 			}
 		}	
 	}
@@ -259,8 +270,8 @@ private:
 	}
 	
 public:
-	mediacontainer_record(avattr &attr_video, 
-		avattr &attr_audio, 
+	mediacontainer_record(const avattr &attr_video,
+		const avattr &attr_audio,
 		char const *file) : 
 		_context(nullptr)
 	{
@@ -299,7 +310,7 @@ public:
 				delete _enc[i];
 			}
 		}
-		if(!(_context->oformat & AVFMT_NOFILE))
+		if(!(_context->oformat->flags & AVFMT_NOFILE))
 		{
 			avio_closep(&_context->pb);
 		}
