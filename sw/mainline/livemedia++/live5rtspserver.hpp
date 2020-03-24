@@ -333,16 +333,16 @@ private:
 		if(nullptr ==
 				lookupServerMediaSession(_session_name))
 		{
-			this->addServerMediaSession(
-				ServerMediaSession::createNew(envir(),
+			std::list<char const *> a;
+			a.push_back(_url);
+			addServerMediaSession(live5::event_serversession::createnew(a,
+					envir(),
 					_session_name,
 					"device session",
 					"streamd by livemedia++",
 					false,
 					nullptr));
 		}
-
-		lookupServerMediaSession(_session_name)->addSubsession(live5ext_servermdiasubsession::createnew(_url, envir()));
 	}
 		
 	void select_url_local_file()
