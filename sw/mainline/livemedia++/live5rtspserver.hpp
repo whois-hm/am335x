@@ -63,7 +63,7 @@ class live5rtspserver : public RTSPServer
 					 ServerMediaSubsession* subsession)
 	    {
 	    	live5clientconnection *con = (live5clientconnection *)ourClientConnection;
-	    	printf("\"play\" command recv from (%s)\n", inet_ntoa(con->get_addr().sin_addr));
+	    	printf("\"pause\" command recv from (%s)\n", inet_ntoa(con->get_addr().sin_addr));
 	    	RTSPServer::RTSPClientSession::handleCmd_PAUSE(ourClientConnection, subsession);
 	    }
 
@@ -84,7 +84,7 @@ public:
 		none,
 		local_file,
 		proxy,
-		device
+		livemediapp
 	};
 	live5rtspserver(UsageEnvironment& env,
 			char const *url,/* source where*/
@@ -114,7 +114,7 @@ public:
 		}
 		select_url_local_file();
 		select_url_proxy(proxy_id, proxy_pwd);
-		select_url_device();
+		select_url_livemediapp();
 		DECLARE_THROW(_mode == none, "can't selection server mode");
 
 		printf("run server : %s\n", rtspURL(lookupServerMediaSession(_session_name)));
@@ -325,7 +325,7 @@ private:
 				  0,
 				  10));
 	}
-	void new_session_device()
+	void new_session_livemediapp()
 	{
 		/*
 			main session create if null 
@@ -333,12 +333,10 @@ private:
 		if(nullptr ==
 				lookupServerMediaSession(_session_name))
 		{
-			std::list<char const *> a;
-			a.push_back(_url);
-			addServerMediaSession(live5::event_serversession::createnew(a,
+			addServerMediaSession(livemediapp_serversession::createnew(_url,
 					envir(),
 					_session_name,
-					"device session",
+					"event session",
 					"streamd by livemedia++",
 					false,
 					nullptr));
@@ -352,17 +350,6 @@ private:
 			return;
 		}
 
-		std::string parse(_url);
-		size_t n = parse.find(".");
-		if(std::string::npos == n ||
-				n >= parse.size())
-		{
-			/*
-			  	  no format file
-			 */
-			return;
-		}
-		std::string extension(parse.substr(n+1));
 		struct
 		{
 			char const *ext;
@@ -370,23 +357,23 @@ private:
 		}table[] =
 		{
 				/*this live555 support class*/
-				{"aac", 	&live5rtspserver::new_session_local_file_aac},
-				{"amr", 	&live5rtspserver::new_session_local_file_amr},
-				{"ac3", 	&live5rtspserver::new_session_local_file_ac3},
-				{"m4e", 	&live5rtspserver::new_session_local_file_m4e},
-				{"264", 	&live5rtspserver::new_session_local_file_264},
-				{"265",	&live5rtspserver::new_session_local_file_265},
-				{"mp3", 	&live5rtspserver::new_session_local_file_mp3},
-				{"mpg",  	&live5rtspserver::new_session_local_file_mpg},
-				{"vob", 	&live5rtspserver::new_session_local_file_vob},
-				{"ts", 	&live5rtspserver::new_session_local_file_ts},
-				{"wav",  	&live5rtspserver::new_session_local_file_wav},
-				{"dv",		&live5rtspserver::new_session_local_file_dv},
+				{".aac", 	&live5rtspserver::new_session_local_file_aac},
+				{".amr", 	&live5rtspserver::new_session_local_file_amr},
+				{".ac3", 	&live5rtspserver::new_session_local_file_ac3},
+				{".m4e", 	&live5rtspserver::new_session_local_file_m4e},
+				{".264", 	&live5rtspserver::new_session_local_file_264},
+				{".265",	&live5rtspserver::new_session_local_file_265},
+				{".mp3", 	&live5rtspserver::new_session_local_file_mp3},
+				{".mpg",  	&live5rtspserver::new_session_local_file_mpg},
+				{".vob", 	&live5rtspserver::new_session_local_file_vob},
+				{".ts", 	&live5rtspserver::new_session_local_file_ts},
+				{".wav",  	&live5rtspserver::new_session_local_file_wav},
+				{".dv",		&live5rtspserver::new_session_local_file_dv},
 		};
 
 		for(int i = 0; i < DIM(table); i++)
 		{
-			if(extension == std::string(table[i].ext))
+			if(contain_string(_url, table[i].ext))
 			{
 				(this->*table[i].f)();
 				_mode = local_file;
@@ -400,31 +387,28 @@ private:
 		{
 			return;
 		}
-		std::string parse(_url);
-		if(parse.find("rtsp") ==
-				std::string::npos)
+
+		if(!contain_string(_url, "rtsp"))
 		{
 			return ;
 		}
-		printf("make session proxy\n");
+
 		new_session_proxy(proxy_id, proxy_pwd);
 		_mode = proxy;
 	}
-	void select_url_device()
+	void select_url_livemediapp()
 	{
 		if(_mode != none)
 		{
 			return;
 		}
-		std::string parse(_url);
-		if(parse.find("/dev") ==
-				std::string::npos)
+
+		if(contain_string(_url, "/dev") ||
+				contain_string(_url, ".mp4"))
 		{
-			return ;
+			new_session_livemediapp();
+			_mode = livemediapp;
 		}
-		printf("make session device\n");
-		new_session_device();
-		_mode = device;		
 	}
 private:
 	char const *_session_name;

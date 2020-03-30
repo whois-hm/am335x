@@ -21,6 +21,16 @@ public:
 			avformat_close_input(&_context);
 		}
 	}
+
+	enum AVCodecID find_codec(enum AVMediaType type)
+	{
+		const AVStream *stream = find_stream(type);
+		if(stream)
+		{
+			return stream->codecpar->codec_id;
+		}
+		return AV_CODEC_ID_NONE;
+	};
 	const AVStream * find_stream(enum AVMediaType type)
 	{
 		for(unsigned  i = 0 ; i < _context->nb_streams; i++)
@@ -90,7 +100,6 @@ public:
 				}
 			}
 		}
-
 		return false;
 	}
 	bool read_packet(const AVStream *src, avpacket_class &pkt)
@@ -115,6 +124,24 @@ public:
 			return true;
 		}
 		return false;
+	}
+	bool eof_stream()
+	{
+		bool has_stream = false;
+		for(auto &it : _packets)
+		{
+			has_stream = !it.empty() ? true : false;
+			if(has_stream)
+			{
+				break;
+			}
+		}
+		return _eof && (has_stream == false);
+
+	}
+	std::string filename()
+	{
+		return std::string(_context->filename);
 	}
 	AVRational timebase(const AVStream &s)
 	{

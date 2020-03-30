@@ -68,6 +68,17 @@ inline void operator delete[](void *ptr)
 
 
 typedef std::lock_guard<std::mutex> autolock;
+inline bool contain_string(char const *str, char const *findstr)
+{
+	std::string dump(str);
+
+	if(dump.empty() ||
+			!findstr)
+	{
+		return false;
+	}
+	return dump.find(findstr) != std::string::npos;
+}
 
 inline
 unsigned  sys_time_c()

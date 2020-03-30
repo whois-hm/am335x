@@ -67,7 +67,6 @@ public:
 	}
 	_dword issetbit(int fd, _dword flag)
 	{
-		fd_set *t = NULL;
 		_dword returnbit = 0;
 		if(fd == -1)
 		{

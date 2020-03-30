@@ -233,6 +233,36 @@ int main(int argc, char *argv[])
 	//rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov
 	return avfor(argc, argv)();
 
+//	livemedia_pp::ref();
+//	mediacontainer a("/home/hmkwon/workspace_kp/resource/a.mp4");
+//	AVBitStreamFilterContext *filter = av_bitstream_filter_init("h264_mp4toannexb");
+//	//a.find_stream(AVMEDIA_TYPE_VIDEO)->codec;
+//	while(1)
+//	{
+//		avpacket_class  pkt;
+//		enum AVMediaType current_readtype = AVMEDIA_TYPE_VIDEO;
+//		bool res = a.read_packet(current_readtype, pkt);
+//		if(!res )
+//		{
+//			break;
+//		}
+//
+//		if(current_readtype == AVMEDIA_TYPE_VIDEO)
+//		{
+//			Time_sleep(1000);
+//			printf("================VIDEO BUFFER===========\n");
+//			printf("prev filter size = %d\n", pkt.raw()->size);
+//			Printf_memory(pkt.raw()->data, pkt.raw()->size);
+//			av_bitstream_filter_filter(filter, a.find_stream(AVMEDIA_TYPE_VIDEO)->codec, NULL, &pkt.raw()->data, &pkt.raw()->size, pkt.raw()->data, pkt.raw()->size, 0);
+//			printf("after filter size = %d\n", pkt.raw()->size);
+//			Printf_memory(pkt.raw()->data, pkt.raw()->size);
+//		}
+//
+//
+//
+//		current_readtype = AVMEDIA_TYPE_VIDEO == current_readtype ?
+//				AVMEDIA_TYPE_AUDIO : AVMEDIA_TYPE_VIDEO;
+//	}
 };
 
 
