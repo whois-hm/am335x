@@ -1,5 +1,5 @@
 #pragma once
-
+#if defined have_uvc
 class uvc_playback :
 		public playback_inst
 {
@@ -239,4 +239,4 @@ public:
 };
 
 
-
+#endif

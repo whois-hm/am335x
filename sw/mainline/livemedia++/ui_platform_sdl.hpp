@@ -640,6 +640,7 @@ virtual	int exec()
 			int res = -1;
 			set_loopflag(true);
 			SDL_Event e;
+
 			while(_bloop_flag)
 			{
 				res = SDL_WaitEvent(&e);
@@ -654,7 +655,7 @@ virtual	int exec()
 				}
 				SDL_PumpEvents();
 			}
-	
+
 			return res;
 		}	
 private:
@@ -687,7 +688,6 @@ private:
 	{
 		struct platform_par parameter;
 		memset(&parameter, 0, sizeof(struct platform_par));
-		
 		parameter.event = platform_event_user;
 		parameter.user._code = e->user.code;
 		parameter.user._ptr = e->user.data1;			
@@ -719,11 +719,13 @@ private:
 		/*our main loop return ) no push to user */
 		if (e->window.event == SDL_WINDOWEVENT_CLOSE)
 		{
+
 			set_loopflag(false);
 		}			
 	}
 	void event_handling_touch(SDL_Event *e)
 	{
+
 		struct platform_par parameter;
 		memset(&parameter, 0, sizeof(struct platform_par));
 		

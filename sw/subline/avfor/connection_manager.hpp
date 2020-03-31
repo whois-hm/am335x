@@ -156,6 +156,7 @@ private:
 		_avc->get(section_connection, connection_ip, ip);
 		_avc->get(section_connection, connection_port, port);
 
+		printf("socket avfor_server connection to ... %s %d\n", ip.c_str(), port);
 		memset( &addr, 0, sizeof( struct sockaddr_in));
 		addr.sin_family = AF_INET;
 		addr.sin_port = htons(port);
@@ -166,16 +167,19 @@ private:
 			_socket = socket(PF_INET, SOCK_STREAM, 0);
 			if(_socket == -1)
 			{
+				printf("socket create fail\n");
 				break;
 			}
 			opt = fcntl(_socket, F_GETFL);
 			if(opt < 0)
 			{
+				printf("socket can't fcntl F_GETFL\n");
 				break;
 			}
 			opt |= (O_NONBLOCK | O_RDWR);
 			if(fcntl(_socket, F_SETFL, opt) < 0)
 			{
+				printf("socket can't fcntl F_SETFL\n");
 				break;
 			}
 
@@ -191,23 +195,28 @@ private:
 				int ret = m.sigwait(0);
 				if(ret < 0)
 				{
+					printf("socket sigwait fail\n");
 					break;
 				}
 				if(m.issetbit_err(_socket))
 				{
+					printf("socket has err bit\n");
 					break;
 				}
 				if(!m.issetbit_in(_socket) &&
 						!m.issetbit_out(_socket))
 				{
+					printf("socket no found in out signal\n");
 					break;
 				}
 
 				int len = sizeof(int);
 				int error = 0;
 				ret = getsockopt(_socket, SOL_SOCKET, SO_ERROR, (void *)&error, (socklen_t *)&len);
+
 				if(ret < 0 || (error != 0))
 				{
+					printf("socket can't getsocketopt error : %d\n", errno);
 					break;
 				}
 			}

@@ -207,7 +207,7 @@ public:
 			/*
 			 	 do retry if can't reading from source
 			 */
-			retry(10);
+			retry(0);
 		}
 		virtual void doStopGettingFrames()
 		{
@@ -269,7 +269,7 @@ public:
 				}
 				return size;
 			}
-			return 0;
+			return size;
 		}
 		source(){for(int i = 0; i < AVMEDIA_TYPE_NB; i++){_bank[i] = nullptr;_max[i] = 0; _index[i] = 0;}}
 		virtual ~source()
@@ -289,12 +289,12 @@ public:
 			 */
 			bank_realloc(type, size);
 
-			return bank_drain(type, to, _index[type]);
+			return bank_drain(type, to, size);
 		}
 		virtual void doStopGettingFrames(enum AVMediaType type) = 0;
 
 	};
-
+#if defined have_uvc
 	class uvcsource : public source
 	{
 		friend class livemediapp_serversession;
@@ -385,6 +385,7 @@ public:
 			/*no condition.. just wait */
 		}
 	};
+#endif
 	class mp4mediacontainersource : public source
 	{
 		friend class livemediapp_serversession;
@@ -543,7 +544,9 @@ public:
 	source *_our_static_source;
 	source *createnew_relative(char const *srcs, livemediapp_serversession &serversession)
 	{
+#if defined have_uvc
 		if(contain_string(srcs, "/dev")) return new uvcsource(serversession, srcs);
+#endif
 		if(contain_string(srcs, ".mp4")) return new mp4mediacontainersource(serversession, srcs);
 		return nullptr;
 	}

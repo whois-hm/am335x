@@ -65,13 +65,11 @@ extern "C"
 #include <fstream>
 #include <iostream>
 #include <functional>
-
 #include "utils.hpp"
 #include "livemedia++.hpp"
 #include "avattr.hpp"
 #include "media_data.hpp"
 #include "avpacket_class.hpp"
-
 #include "avframe_class.hpp"
 #include "pixelframe.hpp"
 #include "pcmframe.hpp"
@@ -94,10 +92,7 @@ extern "C"
 #include "playback_inst.hpp"
 #include "local_playback.hpp"
 #include "rtsp_playback.hpp"
-
-#if defined have_uvc
 #include "uvc_playback.hpp"
-#endif
 #include "playback.hpp"
 #include "ui.hpp"
 
