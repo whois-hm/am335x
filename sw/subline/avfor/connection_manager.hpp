@@ -152,7 +152,7 @@ private:
 		int opt = 0;
 		struct sockaddr_in addr;
 
-
+		int ntry = 5;
 		_avc->get(section_connection, connection_ip, ip);
 		_avc->get(section_connection, connection_port, port);
 
@@ -182,7 +182,6 @@ private:
 				printf("socket can't fcntl F_SETFL\n");
 				break;
 			}
-
 			if(-1 == connect(_socket, (struct sockaddr *)& addr, sizeof(addr)))
 			{
 				if((errno != EINPROGRESS &&
@@ -192,7 +191,7 @@ private:
 				}
 				fdmon m;
 				m.set(_socket,(FD_IN | FD_OUT | FD_ERR));
-				int ret = m.sigwait(0);
+				int ret = m.sigwait(1000);
 				if(ret < 0)
 				{
 					printf("socket sigwait fail\n");
@@ -216,7 +215,7 @@ private:
 
 				if(ret < 0 || (error != 0))
 				{
-					printf("socket can't getsocketopt error : %d\n", errno);
+					printf("socket can't getsocketopt error : %d  %d\n", errno, error);
 					break;
 				}
 			}

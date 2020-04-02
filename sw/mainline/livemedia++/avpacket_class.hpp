@@ -74,6 +74,14 @@ public:
 
 		return dump;
 	}
+	void fromdata(uint8_t *data, int size)
+	{
+		if(data && size > 0)
+		{
+			av_buffer_unref(&_pkt.buf);
+			av_packet_from_data(&_pkt, data, size);
+		}
+	}
 protected:
 	AVPacket _pkt;
 

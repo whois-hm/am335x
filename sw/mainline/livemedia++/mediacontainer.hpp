@@ -16,6 +16,13 @@ public:
 
 	virtual ~mediacontainer()
 	{
+		for(auto  & it : _packets)
+		{
+			if(it.size() > 0)
+			{
+				it.clear();
+			}
+		}
 		if(_context)
 		{
 			avformat_close_input(&_context);
@@ -48,7 +55,7 @@ public:
 		if(_packets.at(t).size() > 0)
 		{
 			auto &it = _packets.at(t).front();
-			pkt = it;
+			pkt = it.move();
 			_packets.at(t).pop_front();
 			return true;
 
@@ -59,12 +66,12 @@ public:
 		{
 			return false;
 		}
-		AVPacket packet_ref;
-		av_init_packet(&packet_ref);
+		avpacket_class packet_ref;
+
 
 		while(!_eof)
 		{
-			ret = av_read_frame(_context, &packet_ref);
+			ret = av_read_frame(_context, packet_ref.raw());
 			if(ret < 0)
 			{
 				_eof = true;
@@ -74,9 +81,9 @@ public:
 			 	 	 have a packet
 			 */
 
-			if(s->index == packet_ref.stream_index)
+			if(s->index == packet_ref.raw()->stream_index)
 			{
-				pkt = packet_ref;
+				pkt = packet_ref.move();
 				return true;
 			}
 			else
@@ -91,10 +98,10 @@ public:
 
 				for(unsigned i = 0; i < _context->nb_streams; i++)
 				{
-					if(_context->streams[i]->index == packet_ref.stream_index)
+					if(_context->streams[i]->index == packet_ref.raw()->stream_index)
 					{
 
-						_packets.at(_context->streams[i]->codec->codec_type).push_back(avpacket_class (packet_ref));
+						_packets.at(_context->streams[i]->codec->codec_type).push_back(packet_ref.move());
 						break;
 					}
 				}

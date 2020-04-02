@@ -1,6 +1,6 @@
 #pragma once
 
-
+#define LIVE5_BUFFER_SIZE	1 * 1024 * 1024
 
 template
 <typename Callable>
@@ -146,6 +146,7 @@ public:
 		if(_cal) delete _cal;
 		if(_env)_env->reclaim();
 		if(_scheduler)delete _scheduler;
+
 		_env = nullptr;
 		_scheduler = nullptr;
 		_cal = nullptr;

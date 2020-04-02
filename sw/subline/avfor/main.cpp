@@ -168,7 +168,7 @@ public:
 				break;
 			}
 			/* last manager load */
-			//load_manager<connection_manager>(res);
+//			load_manager<connection_manager>(res);
 			load_manager<cpu_manager>(res);
 			load_manager<gpio_manager>(res);
 
@@ -182,6 +182,7 @@ public:
 				break;
 			}
 			/*now startp*/
+
 
 			printf("avfor loop start\n");
 			res = _int->exec();
@@ -222,8 +223,6 @@ public:
 		_int->set_loopflag(false);
 	}
 };
-
-
 
 /*--------------------------------------
 	avfor : main

@@ -159,6 +159,8 @@ public:
 	}
 	int operator()(avpacket_class &pkt/*from the mediacontainer's packet*/)
 	{
+		uint8_t *poutbuf = nullptr;
+		int poutbuf_size = 0;
 		/*
 		 	 filtering junst pkt and insert pts if none
 		 */
@@ -174,18 +176,23 @@ public:
 			av_bitstream_filter_filter(_pair.first,
 					_pair.second->codec,
 					nullptr,
-					&pkt.raw()->data,
-					&pkt.raw()->size,
+					&poutbuf,
+					&poutbuf_size,
 					pkt.raw()->data,
 					pkt.raw()->size, 0);
-			return 1;
+
+			pkt.fromdata(poutbuf,poutbuf_size);
 			write_pts(pkt, _pair.second);
+			return 1;
 		}
 		return -1;
 	}
 	int operator()(avpacket_class &pkt/*from the mediacontainer's packet*/,
 			AVRational othertimebase)
 	{
+		uint8_t *poutbuf = nullptr;
+		int poutbuf_size = 0;
+		
 		/*
 		 	 filtering pkt and pts, dts insert base from 'othertimebase'
 		 */
@@ -201,10 +208,12 @@ public:
 			av_bitstream_filter_filter(_pair.first,
 					_pair.second->codec,
 					nullptr,
-					&pkt.raw()->data,
-					&pkt.raw()->size,
+				&poutbuf,
+				&poutbuf_size,
+
 					pkt.raw()->data,
 					pkt.raw()->size, 0);
+			pkt.fromdata(poutbuf,poutbuf_size);
 			write_pts(pkt, _pair.second, &othertimebase);
 			return 1;
 		}

@@ -117,7 +117,9 @@ public:
 		select_url_livemediapp();
 		DECLARE_THROW(_mode == none, "can't selection server mode");
 
-		printf("run server : %s\n", rtspURL(lookupServerMediaSession(_session_name)));
+		char *rtspurl = rtspURL(lookupServerMediaSession(_session_name));
+		printf("run server : %s\n", rtspurl);
+		delete [] rtspurl;
 	}
 	virtual ~live5rtspserver()
 	{

@@ -260,7 +260,7 @@ protected:
 		friend class live5rtspclient;
 		sink_mpeg4_aac_hbr (UsageEnvironment &env,
 				const mediasubsession &subsession) :
-					mediasink(env, subsession, 100000){}
+					mediasink(env, subsession, LIVE5_BUFFER_SIZE){}
 		virtual ~sink_mpeg4_aac_hbr(){}
 	};
 
@@ -269,7 +269,7 @@ protected:
 		friend class live5rtspclient;
 		sink_mp3 (UsageEnvironment &env,
 				const mediasubsession &subsession) :
-					mediasink(env, subsession, 100000){}
+					mediasink(env, subsession, LIVE5_BUFFER_SIZE){}
 		virtual ~sink_mp3(){}
 	};
 	/*
@@ -339,7 +339,7 @@ protected:
 					durationInMicroseconds);
 			continuePlaying();
 		}
-		sink_h264(UsageEnvironment &env, const mediasubsession &subsession) : mediasink(env, subsession, 100000),
+		sink_h264(UsageEnvironment &env, const mediasubsession &subsession) : mediasink(env, subsession, LIVE5_BUFFER_SIZE),
 		_first(false), _sprop(subsession.fmtp_spropparametersets()){}
 		virtual ~sink_h264(){}
 	};
