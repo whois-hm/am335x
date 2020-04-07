@@ -10,7 +10,8 @@ public:
 		live5scheduler <live5rtspserver>(){ }
 	virtual ~mediaserver() { }
 
-	int start(bool atother, 
+	int start(bool atother,
+			live5rtspserver::report report,
 			char const *url,
 			char const*sessionname,
 			char const*proxy_id,
@@ -33,6 +34,7 @@ public:
 		}
 
 		live5scheduler<live5rtspserver>::start(atother,
+						report,
 						_attr.get_char("url"),
 						_attr.get_char("session name"),
 						_attr.get_char("proxy id"),

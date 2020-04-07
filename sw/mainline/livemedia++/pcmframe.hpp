@@ -1,6 +1,7 @@
 /*
  	 audio frame
  */
+
 class pcmframe :
 		public avframe_class_type
 		<pcm>

@@ -3,6 +3,7 @@
 /*
  	 video frame
  */
+
 class pixelframe :
 		public avframe_class_type
 		<pixel>
@@ -20,6 +21,26 @@ private:
 			"pixel frame type no match");}
 public:
 	pixelframe() = delete;
+	pixelframe(pixel &rhs) :
+		avframe_class_type()
+	{
+		if(rhs.can_take())
+		{
+
+			raw()->width = rhs.width();
+			raw()->height = rhs.height();
+			raw()->format = rhs.format();
+			av_frame_get_buffer(raw(), 0);
+
+			av_image_fill_arrays(raw()->data,
+					raw()->linesize,
+					(uint8_t *)rhs.read(),
+					rhs.format(),
+					rhs.width(),
+					rhs.height(),
+					1);
+		}
+	}
 
 	/*
 		setup self

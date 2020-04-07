@@ -112,6 +112,7 @@ private:
 						pix.width() != std::get<2>(_rect) || 
 						pix.height() != std::get<3>(_rect))	
 					{
+
 						/*invalid parameters*/
 						return;
 					}
@@ -140,7 +141,6 @@ private:
 					reload(SDL_PIXELFORMAT_YV12);
 					int w = std::get<2>(_rect); 
 					int h = std::get<3>(_rect);
-
 					int y_size = w * h;
 					int uv_size = y_size >> 2;
 					int y_start = 0;

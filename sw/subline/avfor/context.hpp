@@ -33,6 +33,7 @@
 #define audio_samplingrate 	"audio_samplingrate"
 #define audio_format 			"audio_format"
 #define audio_samplesize 		"audio_samplesize"
+#define image_path				"image_path"
 
 
 class avfor_context
@@ -205,7 +206,8 @@ private:
 				audio_channel ,
 				audio_samplingrate,
 				audio_format 		,
-				audio_samplesize
+				audio_samplesize,
+				image_path
 		};
 
 		std::string str;
@@ -364,6 +366,10 @@ public:
 
 #define custom_code_section_connection_recv_command		6
 #define custom_code_section_connection_close				7
+
+#define custom_code_section_server_incoming_client	8
+#define custom_code_section_server_teardown_client	9
+#define custom_code_section_server_streamout_reference	10
 
 
 class manager

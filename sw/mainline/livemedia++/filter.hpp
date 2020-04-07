@@ -13,6 +13,8 @@ public:
 	{ _bfiltering = false; }
 	void operator << (types &pf)
 	{ if(_bfiltering)operator >> (pf); }
+	void operator << (types &&pf)
+	{ if(_bfiltering)operator >> (pf); }
 
 protected:
 	filter(T *ptr) : _bfiltering(false) ,_ptr(ptr){ }

@@ -45,7 +45,10 @@ public:
 		_avc->get(section_gui, audio_samplingrate, naudio_samplingrate);
 		_avc->get(section_gui, audio_format, naudio_format);
 		_avc->get(section_gui, audio_samplesize, naudio_samplesize);
+		std::string imagepath;
 
+
+		_avc->get(section_gui, image_path, imagepath);
 		/*
 		 	 using display
 		 */
@@ -64,7 +67,7 @@ public:
 					nvideo_format != std::get<2>(display_fmt),
 					"can't open display, parameter has invalid from supported display");
 
-			DECLARE_THROW(!interface->make_window("mainwindow",ui_rect(0,
+			DECLARE_THROW(!interface->make_window("mainwindow",ui_rect(3500,
 					0,
 					nvideo_width,
 					nvideo_height)),

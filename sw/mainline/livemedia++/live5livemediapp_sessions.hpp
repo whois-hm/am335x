@@ -5,6 +5,62 @@
  --------------------------------------------------------------------------------*/
 class livemediapp_serversession : public ServerMediaSession
 {
+	public:typedef std::function<void (unsigned clientsessionid,
+			enum AVMediaType mediatype,
+			enum AVCodecID codecid,
+			unsigned char *streamdata,
+			unsigned streamdata_size)> stream_out_ref;
+private:
+	/*--------------------------------------------------------------------------------
+	 	 our reference stream out filter
+	 --------------------------------------------------------------------------------*/
+
+	struct streamoutfilter_par
+	{
+		unsigned _clientsessionid;
+		enum AVMediaType _mediatype;
+		enum AVCodecID _codecid;
+		unsigned char *_streamdata;
+		unsigned _streamdata_size;
+		streamoutfilter_par(unsigned clientsessionid,
+		enum AVMediaType mediatype,
+		enum AVCodecID codecid,
+		unsigned char *_streamdata,
+		unsigned streamdata_size) :
+			_clientsessionid(clientsessionid),
+			_mediatype(mediatype),
+			_codecid(codecid),
+			_streamdata(_streamdata),
+			_streamdata_size(streamdata_size){}
+	};
+	class streamoutfilter :
+			public filter<streamoutfilter_par,
+			livemediapp_serversession>
+	{
+		friend class livemediapp_serversession;
+		stream_out_ref soref;
+		streamoutfilter(livemediapp_serversession *p) :
+			filter<streamoutfilter_par,
+			livemediapp_serversession>(p),
+			soref(nullptr){}
+
+		virtual void operator >>(streamoutfilter_par &&pf)
+		{
+			if(soref)
+			{
+				soref(pf._clientsessionid,
+						pf._mediatype,
+						pf._codecid,
+						pf._streamdata,
+						pf._streamdata_size);
+			}
+		}
+		void register_soref(const stream_out_ref &fn)
+		{
+			soref = fn;
+		}
+	};
+
 	/*--------------------------------------------------------------------------------
 	 our frame sources
 	 --------------------------------------------------------------------------------*/
@@ -839,6 +895,12 @@ public:
 				numtruncatedbyte,
 				presentationtime,
 				durationinmicroseconds);
+
+			_sofilter << (streamoutfilter_par(clientsessionid,
+					type,
+					type == AVMEDIA_TYPE_AUDIO ? t->audiocodec() : t->videocodec(),
+					to,
+					readsize));
 		});
 		return readsize;
 	}
@@ -922,6 +984,9 @@ public:
 	}
 	std::list<source *>_sources;;
 	char *_srcs;
+
+
+	streamoutfilter _sofilter;
 public:
 	static ServerMediaSession *createnew(char const *srcs,
 				UsageEnvironment& env,
@@ -950,10 +1015,20 @@ public:
 		       Boolean isSSM,
 		       char const* miscSDPLines) :
 		    	   ServerMediaSession(env, streamName, info, description, isSSM, miscSDPLines),
-					_srcs(strdup(srcs)){ }
+					_srcs(strdup(srcs)),
+					_sofilter(this){ }
 	virtual ~livemediapp_serversession()
 	{
 		free(_srcs);
+	}
+	void start_streamout_filter(const stream_out_ref &f)
+	{
+		_sofilter.register_soref(f);
+		_sofilter.enable();
+	}
+	void end_streamout_filter()
+	{
+		_sofilter.disable();
 	}
 
 };

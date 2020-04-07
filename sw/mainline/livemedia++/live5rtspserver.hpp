@@ -51,6 +51,14 @@ class live5rtspserver : public RTSPServer
 			live5clientconnection *con = (live5clientconnection *)ourClientConnection;
 			printf("\"teardown\" command recv from (%s)\n", inet_ntoa(con->get_addr().sin_addr));
 			RTSPServer::RTSPClientSession::handleCmd_TEARDOWN(ourClientConnection, subsession);
+			if(((live5rtspserver *)&fOurRTSPServer)->_report._teardownclient)
+			{
+				((live5rtspserver *)&fOurRTSPServer)->_report._teardownclient(((live5rtspserver *)&fOurRTSPServer)->_report._ptr,
+						std::string(inet_ntoa(con->get_addr().sin_addr)),
+						fOurSessionId);
+			}
+
+
 		}
 		virtual void handleCmd_PLAY(RTSPClientConnection* ourClientConnection,
 					ServerMediaSubsession* subsession, char const* fullRequestStr)
@@ -58,6 +66,15 @@ class live5rtspserver : public RTSPServer
 			live5clientconnection *con = (live5clientconnection *)ourClientConnection;
 			printf("\"play\" command recv from (%s)\n", inet_ntoa(con->get_addr().sin_addr));
 			RTSPServer::RTSPClientSession::handleCmd_PLAY(ourClientConnection, subsession, fullRequestStr);
+
+			if(((live5rtspserver *)&fOurRTSPServer)->_report._playingclient)
+			{
+				((live5rtspserver *)&fOurRTSPServer)->_report._playingclient(((live5rtspserver *)&fOurRTSPServer)->_report._ptr,
+						std::string(inet_ntoa(con->get_addr().sin_addr)),
+						fOurSessionId);
+			}
+
+
 		}
 	    virtual void handleCmd_PAUSE(RTSPClientConnection* ourClientConnection,
 					 ServerMediaSubsession* subsession)
@@ -86,7 +103,42 @@ public:
 		proxy,
 		livemediapp
 	};
-	live5rtspserver(UsageEnvironment& env,
+	struct report
+	{
+		/*new client was reqeust playing*/
+		typedef std::function<void (void *ptr, std::string clientip,  unsigned clientsessionid)> playingclient;
+		/*client was end of stream*/
+		typedef std::function<void (void *ptr, std::string clientip, unsigned clientsessionid)> teardownclient;
+
+
+		void *_ptr;
+		playingclient _playingclient;
+		teardownclient _teardownclient;
+
+		/*stream out
+		 * warnning .
+		 * we notify streamdata is our mediasource's data pointer
+		 * you should just reference data pointer
+		 * */
+		livemediapp_serversession::stream_out_ref _streamout;
+		report() :
+			_ptr(nullptr),
+			_playingclient(nullptr),
+			_teardownclient(nullptr),
+			_streamout(nullptr){}
+		report(void *ptr,
+				playingclient &&a,
+				teardownclient &&b,
+				livemediapp_serversession::stream_out_ref &&c) :
+				_ptr(ptr),
+				_playingclient(a),
+				_teardownclient(b),
+				_streamout(c) {}
+	};
+
+	live5rtspserver(
+			UsageEnvironment& env,
+			struct report report,
 			char const *url,/* source where*/
 			char const *session_name,	/*our stream prefix*/
 			char const *proxy_id = nullptr,/*client's authentication*/
@@ -102,7 +154,8 @@ public:
 			 reclamationSeconds),
 			 _session_name(session_name ? session_name : url),
 			 _url(url),
-			 _mode(none)
+			 _mode(none),
+			 _report(report)
 	{
 		DECLARE_THROW(!_url, "can't parse url");
 		DECLARE_THROW(fServerSocket == -1, "can't use socket port");
@@ -335,13 +388,21 @@ private:
 		if(nullptr ==
 				lookupServerMediaSession(_session_name))
 		{
-			addServerMediaSession(livemediapp_serversession::createnew(_url,
+			ServerMediaSession *livemediappsession = nullptr;
+			livemediappsession = livemediapp_serversession::createnew(_url,
 					envir(),
 					_session_name,
 					"event session",
 					"streamd by livemedia++",
 					false,
-					nullptr));
+					nullptr);
+			DECLARE_THROW(!livemediappsession, "can't create livemedia pp serversession..");
+
+			if(_report._streamout)
+			{
+				((livemediapp_serversession *)livemediappsession)->start_streamout_filter(_report._streamout);
+			}
+			this-> addServerMediaSession(livemediappsession);
 		}
 	}
 		
@@ -412,8 +473,10 @@ private:
 			_mode = livemediapp;
 		}
 	}
+
 private:
 	char const *_session_name;
 	char const *_url;
 	enum operation_mode _mode;
+	struct report _report;
 };
