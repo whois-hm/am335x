@@ -67,10 +67,19 @@ public :
 	}
 	raw_media_data &operator = (raw_media_data &&rhs)
 	{
+		if(_data_ptr)
+		{
+			_deallocator(_data_ptr);
+		}
+		_data_ptr = nullptr;
+		_data_size = 0;
+
 		_data_ptr = rhs._data_ptr;
       _data_size = rhs._data_size;
 		_pts = rhs._pts;
 		_type = rhs._type;
+		rhs._data_ptr = nullptr;
+		rhs._data_size = 0;
 		return *this;
 	}
 
